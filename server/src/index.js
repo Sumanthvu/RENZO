@@ -1,40 +1,59 @@
-import 'dotenv/config';
-import express from 'express';
-import http from 'http';
-import cors from 'cors';
-import { Server } from 'socket.io';
+//Approach 1
+//Using try-catch async await ifi
+/*
 
-import connectDB from './config/db.js';
-import routes from './routes/index.js';
-import registerSocketHandlers from './socket/index.js';
+//require('dotenv').config({path: './env'})
 
-const PORT = process.env.PORT || 5000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+import dotenv from 'dotenv'
+dotenv.config({
+    path: './env'
+})
+import mongoose from 'mongoose';
+import { DB_NAME } from './constants';
 
-// ── Express app ──────────────────────────────────────────────────────────────
-const app = express();
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
-app.use(express.json());
+import express from 'express'
+const  app=express()
 
-// ── Routes ───────────────────────────────────────────────────────────────────
-app.use('/api', routes);
+( async () => {
+    try{
+      await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`)
+      app.on("error",()=>{
+        console.log("Error: ",error);
+        throw error;
+      })
+      app.listen(process.env.PORT,()=>{
+        console.log(`App is listening on port ${process.env.PORT}`)
+      })
+    }
+    catch(error){
+        console.error("Error: ",error);
+        throw error
+    }
+} ) ()
 
-// ── HTTP server (needed to share with Socket.io) ─────────────────────────────
-const server = http.createServer(app);
+*/
 
-// ── Socket.io ────────────────────────────────────────────────────────────────
-const io = new Server(server, {
-  cors: {
-    origin: CLIENT_URL,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
+//Approach 2
+
+//We will connect the database in a different file inside the DB folder
+//export that and import in the index file
+
+// require('dotenv').config({path: './env'})
+
+import dotenv from "dotenv";
+dotenv.config({
+  path: "./.env",
 });
-registerSocketHandlers(io);
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-connectDB().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+import connectDB from "./db/index.js";
+import { app } from "./app.js";
+
+connectDB()
+  .then(() => {
+    app.listen(process.env.PORT || 8000, () => {
+      console.log(`Server is running at port : ${process.env.PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.log("Mongo DB connection failed ", err);
   });
-});
