@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import cookieParser from "cookie-parser"; // Crucial for reading JWT cookies!
+import cookieParser from "cookie-parser";
+import chatRouter from "./routes/chat.routes.js"; // Crucial for reading JWT cookies!
 
 const app = express();
 
@@ -32,6 +33,7 @@ import userRoutes from "./routes/user.routes.js";
 // Every route inside user.routes.js will now start with /api/users
 // (e.g., http://localhost:5000/api/users/register)
 app.use("/api/users", userRoutes);
+app.use("/api/v1/chats", chatRouter);
 
 import { ApiError } from './utils/ApiError.js';
 

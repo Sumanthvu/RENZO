@@ -69,17 +69,41 @@ const googleLogin = asyncHandler(async (req, res) => {
 
 // Helper Functions
 const generateAccessAndRefreshTokens = async (userId) => {
+  if (!userId) {
+    throw new ApiError(400, "User id is required for token generation");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found while generating tokens");
+  }
+
+  if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
+    throw new ApiError(500, "JWT secrets are not configured on server");
+  }
+
   try {
-    const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: { refreshToken },
+      },
+      {
+        new: false,
+        runValidators: false,
+      }
+    );
 
     return { accessToken, refreshToken };
   } catch (error) {
-    throw new ApiError(500, "Something went wrong while generating tokens");
+    console.error("Token generation error:", error);
+    throw new ApiError(
+      500,
+      error?.message || "Something went wrong while generating tokens"
+    );
   }
 };
 
