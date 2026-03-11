@@ -1,14 +1,45 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
+import axiosClient from '../api/axiosClient';
 
 export default function Login() {
-  const handleLogin = (e) => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    console.log("Login triggered!");
+    setLoading(true);
+    
+    try {
+      const response = await axiosClient.post('/login', formData);
+      toast.success(response.data.message || 'Logged in successfully!');
+      
+      // Save user data to localStorage if you want to use it globally
+      localStorage.setItem('user', JSON.stringify(response.data.data.user));
+      
+      // Redirect to the main chat/dashboard area
+      setTimeout(() => navigate('/chat'), 1500); 
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <Toaster position="top-center" reverseOrder={false} />
       <div className="max-w-md w-full bg-gray-900/80 backdrop-blur-xl border border-gray-800 p-8 rounded-2xl shadow-[0_0_40px_rgba(139,92,246,0.1)] transform transition-all duration-500 hover:shadow-[0_0_60px_rgba(139,92,246,0.15)] hover:-translate-y-2">
         
         <div className="text-center mb-8">
@@ -22,6 +53,9 @@ export default function Login() {
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-purple-500 transition-colors" size={20} />
             <input 
               type="email" 
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               placeholder="Email Address" 
               required
               className="w-full bg-gray-950 border border-gray-800 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
@@ -33,6 +67,9 @@ export default function Login() {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-purple-500 transition-colors" size={20} />
             <input 
               type="password" 
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               placeholder="Password" 
               required
               className="w-full bg-gray-950 border border-gray-800 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
@@ -41,9 +78,10 @@ export default function Login() {
 
           <button 
             type="submit" 
-            className="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 rounded-xl transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(147,51,234,0.4)]"
+            disabled={loading}
+            className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 text-white font-semibold py-3 rounded-xl transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(147,51,234,0.4)]"
           >
-            Log In
+            {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
 
