@@ -154,23 +154,29 @@ export default function ChatDashboard() {
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px] animate-pulse"></div>
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-fuchsia-600/10 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-[-46%] md:bottom-[-42%] lg:bottom-[-36%] xl:bottom-[-33%] w-[230%] md:w-[190%] lg:w-[165%] xl:w-[150%] h-[86%] md:h-[82%] lg:h-[76%] rounded-[100%] bg-gradient-to-t from-[#0a2550]/75 via-[#123f75]/30 to-transparent"></div>
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-[19%] md:bottom-[17%] lg:bottom-[15%] w-[125%] md:w-[100%] lg:w-[84%] xl:w-[74%] h-[2px] bg-gradient-to-r from-transparent via-cyan-300/65 to-transparent blur-[0.5px]"></div>
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-[18%] md:bottom-[16%] lg:bottom-[14%] w-[105%] md:w-[82%] lg:w-[68%] h-16 md:h-14 bg-cyan-400/10 blur-3xl rounded-full"></div>
       </div>
 
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 transform bg-[#111827]/95 backdrop-blur-2xl border-r border-white/5 transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between p-4 mb-2">
-          <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">SparkShell</h2>
+      <div className={`fixed inset-y-0 left-0 z-50 w-72 transform bg-gradient-to-b from-[#0F1A32]/95 via-[#101B35]/95 to-[#0D162C]/95 backdrop-blur-2xl border-r border-white/10 transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 mb-1 border-b border-white/10">
+          <div>
+            <h2 className="text-[36px] font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 leading-none">SparkShell</h2>
+            <p className="text-[11px] text-gray-400 mt-1 tracking-[0.2em] uppercase">Mission Log</p>
+          </div>
           <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><X size={20} /></button>
         </div>
-        <div className="px-4 mb-6">
-          <button onClick={() => { setActiveChatId(null); setMessages([]); setIsSidebarOpen(false); }} className="flex items-center gap-3 w-full p-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400 hover:bg-blue-600/20 transition-all">
+        <div className="px-4 mt-3 mb-5">
+          <button onClick={() => { setActiveChatId(null); setMessages([]); setIsSidebarOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl bg-blue-500/10 border border-blue-400/30 text-blue-300 hover:bg-blue-500/20 transition-all shadow-[0_8px_24px_rgba(59,130,246,0.15)]">
             <Plus size={18} /> <span className="font-medium">New Chat</span>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 space-y-1 custom-scrollbar">
-          <div className="text-xs font-semibold text-gray-500 mb-3 px-2 uppercase tracking-wider">Recent</div>
+        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
+          <div className="text-xs font-semibold text-gray-500 mb-2 px-2 uppercase tracking-[0.14em]">Recent</div>
           {chats.map(chat => (
-            <button key={chat._id} onClick={() => { setActiveChatId(chat._id); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full p-3 rounded-xl text-left transition-all ${activeChatId === chat._id ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-              <MessageSquare size={16} className={activeChatId === chat._id ? "text-blue-400" : "text-gray-500"} />
+            <button key={chat._id} onClick={() => { setActiveChatId(chat._id); setIsSidebarOpen(false); }} className={`group flex items-center gap-3 w-full px-3 py-3 rounded-xl text-left transition-all border ${activeChatId === chat._id ? 'bg-white/10 border-white/10 text-white shadow-[0_8px_16px_rgba(0,0,0,0.2)]' : 'border-transparent text-gray-300 hover:bg-white/5 hover:border-white/5 hover:text-white'}`}>
+              <MessageSquare size={16} className={activeChatId === chat._id ? "text-blue-300" : "text-gray-500 group-hover:text-blue-300"} />
               <span className="truncate text-sm">{chat.title}</span>
             </button>
           ))}
@@ -217,22 +223,33 @@ export default function ChatDashboard() {
               </form>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col p-4 md:p-6 space-y-6 pb-40 max-w-4xl mx-auto w-full">
+            <div className="flex-1 flex flex-col px-4 md:px-6 pt-6 md:pt-8 pb-44 gap-8 max-w-5xl mx-auto w-full">
               {messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start items-start gap-4'}`}>
+                <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start items-start gap-3 md:gap-4'}`}>
                   {msg.senderRole === 'ai' && (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.3)] mt-1">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.3)] mt-1.5">
                       <span className="text-white text-[10px] font-bold">AI</span>
                     </div>
                   )}
-                  <div className={`max-w-[85%] ${msg.senderRole === 'user' ? 'p-4 rounded-2xl rounded-tr-sm bg-[#1E293B] border border-white/5' : 'p-2'}`}>
-                    <div className="text-[15px] leading-relaxed prose prose-invert max-w-none">
+                  <div className={`max-w-[92%] md:max-w-[85%] ${msg.senderRole === 'user' ? 'px-4 py-3.5 rounded-2xl rounded-tr-sm bg-[#1E293B] border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.25)]' : 'px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10'}`}>
+                    <div className={`text-[15px] md:text-[15.5px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0B1220] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto ${msg.senderRole === 'user' ? 'text-gray-100 prose-p:text-gray-100' : 'text-gray-200 prose-p:text-gray-200'}`}>
                       <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content}</ReactMarkdown>
                     </div>
                   </div>
                 </div>
               ))}
-              {isLoading && <div className="p-4 flex gap-2"><div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce"></div><div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce delay-150"></div><div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce delay-300"></div></div>}
+              {isLoading && (
+                <div className="flex items-start gap-3 md:gap-4">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 mt-1.5">
+                    <span className="text-white text-[10px] font-bold">AI</span>
+                  </div>
+                  <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
