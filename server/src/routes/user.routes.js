@@ -4,6 +4,9 @@ import {
   verifyOtpAndRegister,
   loginUser,
   logOutUser,
+  forgotPassword,
+  resetPassword,
+  googleLogin
 } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js"; // Adjust path if necessary
 
@@ -21,6 +24,9 @@ router.route("/verify-otp").post(verifyOtpAndRegister);
 
 // User logs in -> Backend sends JWTs
 router.route("/login").post(loginUser);
+router.route("/forgot-password").post(forgotPassword);
+router.route("/reset-password").post(resetPassword);
+router.route("/google-login").post(googleLogin);
 
 
 // ==========================================

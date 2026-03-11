@@ -4,6 +4,68 @@ import { User } from "../models/user.model.js";
 import { Otp } from "../models/otp.model.js";
 import { sendEmail } from "../utils/sendMail.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { OAuth2Client } from "google-auth-library";
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+
+const googleLogin = asyncHandler(async (req, res) => {
+  const { credential } = req.body;
+
+  if (!credential) {
+    throw new ApiError(400, "Google token is required");
+  }
+
+  const ticket = await client.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  const payload = ticket.getPayload();
+  const { email, name, picture, email_verified } = payload;
+
+  if (!email_verified) {
+    throw new ApiError(400, "Google email is not verified.");
+  }
+
+  let user = await User.findOne({ email });
+
+  if (!user) {
+    const randomPassword = Math.random().toString(36).slice(-8) + Date.now().toString();
+
+    user = await User.create({
+      fullName: name,
+      email: email,
+      password: randomPassword, 
+      isVerified: true,
+      coverImage: picture 
+    });
+  } else if (!user.isVerified) {
+    user.isVerified = true;
+    await user.save({ validateBeforeSave: false });
+  }
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+  const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+  };
+
+  return res
+    .status(200)
+    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { user: loggedInUser, accessToken },
+        "Google Login Successful"
+      )
+    );
+});
 
 // Helper Functions
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -187,9 +249,84 @@ const logOutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
 
+
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(400, "Email is required");
+  }
+
+  // 1. Check if user exists
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
+  }
+
+  // 2. Generate OTP and save to temporary OTP database
+  const otp = generateOtp();
+  await Otp.deleteMany({ email }); // Clear any old OTPs
+  await Otp.create({ email, otp });
+
+  // 3. Send Email
+  const emailMsg = `
+    <h2>Password Reset Request</h2>
+    <p>Your password reset code is: <strong style="font-size: 24px;">${otp}</strong></p>
+    <p>This code will expire in 5 minutes. If you did not request this, please ignore this email.</p>
+  `;
+
+  const emailRes = await sendEmail(email, "Reset Your SparkShell Password", emailMsg);
+
+  if (!emailRes.success) {
+    throw new ApiError(500, "Failed to send password reset email.");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password reset OTP has been sent to your email."));
+});
+
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  // 1. Verify the OTP
+  const otpRecord = await Otp.findOne({ email, otp });
+  if (!otpRecord) {
+    throw new ApiError(400, "Invalid OTP or OTP has expired.");
+  }
+
+  // 2. Find user and update password
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new ApiError(404, "User not found.");
+  }
+
+  // We assign the new password directly. The userSchema.pre("save") hook will automatically hash it!
+  user.password = newPassword;
+  
+  // Optional: Destroy their refresh token so all their old devices get logged out for security
+  user.refreshToken = undefined;
+  await user.save();
+
+  // 3. Clean up the OTP
+  await Otp.deleteMany({ email });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Your password has been reset successfully. You can now log in."));
+});
+
 export {
   sendOtpForRegistration,
   verifyOtpAndRegister,
   loginUser,
-  logOutUser
+  logOutUser,
+  forgotPassword,
+  resetPassword,
+  googleLogin
 };
