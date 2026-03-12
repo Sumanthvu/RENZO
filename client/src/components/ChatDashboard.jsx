@@ -17,6 +17,7 @@ export default function ChatDashboard() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
+  const [previewImage, setPreviewImage] = useState(null);
   const [editorCode, setEditorCode] = useState('# Code editor ready\n');
   const chatContainerRef = useRef(null);
   const profileMenuRef = useRef(null);
@@ -232,6 +233,10 @@ export default function ChatDashboard() {
     fileInputRef.current?.click();
   };
 
+  const removeAttachment = (id) => {
+    setAttachedFiles(prev => prev.filter(f => f.id !== id));
+  };
+
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     if ((!inputMessage.trim() && !attachedFiles.length) || isLoading) return;
@@ -378,14 +383,31 @@ export default function ChatDashboard() {
           </div>
         </header>
 
-        <main ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+        <main ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto no-scrollbar smooth-scroll">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center px-4">
               <div className="w-full max-w-3xl text-center -mt-10">
                 <div className="mx-auto mb-8 h-24 w-64 md:h-28 md:w-80">
                   <img src="/temp/ui-logo.png" alt="Renzo logo" className="h-full w-full object-contain" />
                 </div>
-                <form onSubmit={handleSendMessage} className="mx-auto mt-2 relative w-full max-w-[720px] rounded-full border border-white/15 bg-[#0f1116]/88 backdrop-blur-xl">
+                {attachedFiles.length > 0 && (
+                  <div className="mx-auto w-full max-w-[720px] mb-3 flex flex-wrap gap-2">
+                    {attachedFiles.map((file) => (
+                      <div key={file.id} className="relative group cursor-pointer flex flex-col items-center">
+                        {file.previewDataUrl ? (
+                          <img src={file.previewDataUrl} alt={file.name} className="h-20 w-20 object-cover rounded-xl border border-white/15" onClick={() => setPreviewImage(file.previewDataUrl)} />
+                        ) : (
+                          <div className="h-20 w-20 rounded-xl bg-[#0f1116] border border-white/10 flex items-center justify-center text-[10px] text-gray-400 px-1 text-center">{file.name}</div>
+                        )}
+                        <button type="button" onClick={() => removeAttachment(file.id)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-neutral-700 border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                          <X size={10} />
+                        </button>
+                        <p className="mt-0.5 text-center text-[9px] text-gray-400 truncate w-20">{file.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <form onSubmit={handleSendMessage} className="mx-auto relative w-full max-w-[720px] rounded-full border border-white/15 bg-[#0f1116]/88 backdrop-blur-xl">
                   <button type="button" title="Attach files/images (Shift+click for folder)" onClick={handleAttachClick} className="absolute left-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-gray-400 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                     <Paperclip size={16} />
                   </button>
@@ -394,27 +416,11 @@ export default function ChatDashboard() {
                     <button type="button" className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                       <Mic size={16} />
                     </button>
-                    <button type="submit" className="h-9 w-9 rounded-full bg-white text-black hover:bg-gray-200 transition-colors flex items-center justify-center">
+                    <button type="submit" disabled={!inputMessage.trim() && !attachedFiles.length} className="h-9 w-9 rounded-full bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-40 flex items-center justify-center">
                       <Send size={15} />
                     </button>
                   </div>
                 </form>
-                {attachedFiles.length > 0 && (
-                  <div className="mt-3 mx-auto w-full max-w-[720px] flex flex-wrap gap-2">
-                    {attachedFiles.map((file) => (
-                      <div key={file.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-2 w-[168px]">
-                        {file.previewDataUrl ? (
-                          <img src={file.previewDataUrl} alt={file.name} className="h-20 w-full rounded-lg object-cover" />
-                        ) : (
-                          <div className="h-20 w-full rounded-lg bg-black/40 border border-white/10 flex items-center justify-center text-xs text-gray-400 px-2 text-center">
-                            {file.name}
-                          </div>
-                        )}
-                        <p className="mt-1 text-[11px] text-gray-300 truncate" title={file.relativePath}>{file.name}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
                 <p className="mt-6 text-[13px] text-gray-500">Renzo can make mistakes. Verify important information.</p>
               </div>
             </div>
@@ -422,27 +428,35 @@ export default function ChatDashboard() {
             <div className="w-full max-w-4xl mx-auto px-4 md:px-6 py-8 pb-40 space-y-6">
               {messages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[92%] md:max-w-[82%] rounded-2xl px-4 py-3.5 border backdrop-blur-md ${msg.senderRole === 'user' ? 'bg-[#171b26] border-white/10 text-gray-100' : 'bg-[#0f1116] border-white/10 text-gray-200'}`}>
-                    {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
-                      <div className="mb-3 flex flex-wrap gap-2">
-                        {msg.attachments.map((file, fileIdx) => (
-                          <div key={`${file.name}-${fileIdx}`} className="rounded-xl border border-white/10 bg-white/[0.04] p-2 w-[168px]">
-                            {file.previewDataUrl ? (
-                              <img src={file.previewDataUrl} alt={file.name} className="h-20 w-full rounded-lg object-cover" />
-                            ) : (
-                              <div className="h-20 w-full rounded-lg bg-black/40 border border-white/10 flex items-center justify-center text-xs text-gray-400 px-2 text-center">
-                                {file.name}
-                              </div>
-                            )}
-                            <p className="mt-1 text-[11px] text-gray-300 truncate" title={file.relativePath || file.name}>{file.name}</p>
-                          </div>
-                        ))}
+                  {msg.senderRole === 'user' ? (
+                    <div className="flex flex-col items-end gap-1.5 max-w-[92%] md:max-w-[82%]">
+                      {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          {msg.attachments.map((file, fileIdx) => (
+                            <div key={`${file.name}-${fileIdx}`} className="relative group cursor-pointer flex flex-col items-center">
+                              {file.previewDataUrl ? (
+                                <img src={file.previewDataUrl} alt={file.name} className="h-28 w-28 object-cover rounded-xl border border-white/15 hover:opacity-90 transition-opacity" onClick={() => setPreviewImage(file.previewDataUrl)} />
+                              ) : (
+                                <div className="h-24 w-28 rounded-xl bg-[#171b26] border border-white/10 flex items-center justify-center text-[10px] text-gray-400 px-2 text-center">{file.name}</div>
+                              )}
+                              <p className="mt-0.5 text-[9px] text-gray-500 truncate w-28 text-center">{file.name}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="rounded-2xl px-4 py-3.5 border border-white/10 bg-[#171b26] backdrop-blur-md text-gray-100">
+                        <div className="text-[15px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0f141d] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto prose-p:text-gray-100">
+                          <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content || ''}</ReactMarkdown>
+                        </div>
                       </div>
-                    )}
-                    <div className={`text-[15px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0f141d] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto ${msg.senderRole === 'user' ? 'prose-p:text-gray-100' : 'prose-p:text-gray-200'}`}>
-                      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content || ''}</ReactMarkdown>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="max-w-[92%] md:max-w-[82%] rounded-2xl px-4 py-3.5 border border-white/10 bg-[#0f1116] backdrop-blur-md text-gray-200">
+                      <div className="text-[15px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0f141d] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto prose-p:text-gray-200">
+                        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content || ''}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -464,6 +478,23 @@ export default function ChatDashboard() {
         {messages.length > 0 && (
           <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 pt-10 bg-gradient-to-t from-black via-black/80 to-transparent">
             <div className="w-full max-w-4xl mx-auto">
+              {attachedFiles.length > 0 && (
+                <div className="mb-2 px-1 flex flex-wrap gap-2">
+                  {attachedFiles.map((file) => (
+                    <div key={file.id} className="relative group cursor-pointer flex flex-col items-center">
+                      {file.previewDataUrl ? (
+                        <img src={file.previewDataUrl} alt={file.name} className="h-20 w-20 object-cover rounded-xl border border-white/15" onClick={() => setPreviewImage(file.previewDataUrl)} />
+                      ) : (
+                        <div className="h-20 w-20 rounded-xl bg-[#0f1116] border border-white/10 flex items-center justify-center text-[10px] text-gray-400 px-1 text-center">{file.name}</div>
+                      )}
+                      <button type="button" onClick={() => removeAttachment(file.id)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-neutral-700 border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        <X size={10} />
+                      </button>
+                      <p className="mt-0.5 text-center text-[9px] text-gray-400 truncate w-20">{file.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <form onSubmit={handleSendMessage} className="relative rounded-full border border-white/15 bg-[#0f1116]/90 backdrop-blur-xl">
                 <button type="button" title="Attach files/images (Shift+click for folder)" onClick={handleAttachClick} className="absolute left-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-gray-400 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                   <Paperclip size={16} />
@@ -473,31 +504,24 @@ export default function ChatDashboard() {
                   <button type="button" className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                     <Mic size={16} />
                   </button>
-                  <button type="submit" disabled={!inputMessage.trim()} className="h-9 w-9 rounded-full bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-40 flex items-center justify-center">
+                  <button type="submit" disabled={!inputMessage.trim() && !attachedFiles.length} className="h-9 w-9 rounded-full bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-40 flex items-center justify-center">
                     <Send size={15} />
                   </button>
                 </div>
               </form>
-              {attachedFiles.length > 0 && (
-                <div className="mt-2 px-1 flex flex-wrap gap-2">
-                  {attachedFiles.map((file) => (
-                    <div key={file.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-2 w-[150px]">
-                      {file.previewDataUrl ? (
-                        <img src={file.previewDataUrl} alt={file.name} className="h-16 w-full rounded-lg object-cover" />
-                      ) : (
-                        <div className="h-16 w-full rounded-lg bg-black/40 border border-white/10 flex items-center justify-center text-[10px] text-gray-400 px-2 text-center">
-                          {file.name}
-                        </div>
-                      )}
-                      <p className="mt-1 text-[10px] text-gray-300 truncate" title={file.relativePath}>{file.name}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}
       </div>
+
+      {previewImage && (
+        <div className="fixed inset-0 z-[200] bg-black/92 flex items-center justify-center p-6" onClick={() => setPreviewImage(null)}>
+          <button className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={() => setPreviewImage(null)}>
+            <X size={20} />
+          </button>
+          <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
 
       <div className={`border-l border-white/5 bg-[#0B0F19]/95 backdrop-blur-xl transition-all duration-300 ease-in-out flex flex-col shrink-0 ${isSandboxOpen ? 'w-full md:w-[45%] lg:w-[40%] translate-x-0' : 'w-0 translate-x-full opacity-0'}`}>
         <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
