@@ -25,7 +25,15 @@ const mapChatForSidebar = (chat, userId) => ({
 
 const getSharedChats = asyncHandler(async (req, res) => {
   const sharedChats = await Chat.find({
-    "collaborators.userId": req.user._id,
+    $or: [
+      {
+        "collaborators.userId": req.user._id,
+      },
+      {
+        userId: req.user._id,
+        collaborators: { $exists: true, $ne: [] },
+      },
+    ],
   }).sort({ updatedAt: -1 });
 
   return res

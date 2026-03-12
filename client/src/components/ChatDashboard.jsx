@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Menu, Plus, MessageSquare, Settings, Play, User, Send, X, Code, Terminal, PanelRightOpen, PanelRightClose, Paperclip, Mic, Copy, Check, Inbox, UserPlus, Shield, ShieldCheck } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Settings, Play, User, Send, X, Code, Terminal, PanelRightOpen, PanelRightClose, Paperclip, Mic, Copy, Check, Inbox, UserPlus, Shield, ShieldCheck, Users } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
@@ -13,7 +13,7 @@ export default function ChatDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSandboxOpen, setIsSandboxOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isInboxView, setIsInboxView] = useState(false);
+  const [sidebarView, setSidebarView] = useState('owned');
   const [chats, setChats] = useState([]);
   const [sharedChats, setSharedChats] = useState([]);
   const [inboxInvites, setInboxInvites] = useState([]);
@@ -58,6 +58,10 @@ export default function ChatDashboard() {
       return '';
     }
   })();
+
+  const isInboxView = sidebarView === 'inbox';
+  const isSharedView = sidebarView === 'shared';
+  const isOwnedView = sidebarView === 'owned';
 
   const allChats = [...chats, ...sharedChats];
   const activeChatMeta = allChats.find((item) => item._id === activeChatId);
@@ -638,12 +642,41 @@ export default function ChatDashboard() {
       </div>
 
       <div className="fixed inset-y-0 left-0 z-50 w-12 border-r border-white/10 bg-black/90 backdrop-blur-xl flex flex-col items-center py-4 gap-2">
-        <button className="h-9 w-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-gray-200 flex items-center justify-center transition-colors" onClick={() => { setIsInboxView(false); setIsSidebarOpen((prev) => !prev); }}>
+        <button className={`h-9 w-9 rounded-xl text-gray-200 flex items-center justify-center transition-colors ${isSidebarOpen && isOwnedView ? 'bg-white/[0.12]' : 'bg-white/[0.04] hover:bg-white/[0.08]'}`} onClick={() => {
+          if (isSidebarOpen && isOwnedView) {
+            setIsSidebarOpen(false);
+          } else {
+            setSidebarView('owned');
+            setIsSidebarOpen(true);
+          }
+        }}>
           <Menu size={20} />
         </button>
 
         <button
-          onClick={() => { setIsInboxView(true); setIsSidebarOpen(true); }}
+          onClick={() => {
+            if (isSidebarOpen && isSharedView) {
+              setIsSidebarOpen(false);
+            } else {
+              setSidebarView('shared');
+              setIsSidebarOpen(true);
+            }
+          }}
+          className={`relative h-9 w-9 rounded-xl text-gray-200 flex items-center justify-center transition-colors ${isSidebarOpen && isSharedView ? 'bg-white/[0.12]' : 'bg-white/[0.04] hover:bg-white/[0.08]'}`}
+          title="Shared chats"
+        >
+          <Users size={17} />
+        </button>
+
+        <button
+          onClick={() => {
+            if (isSidebarOpen && isInboxView) {
+              setIsSidebarOpen(false);
+            } else {
+              setSidebarView('inbox');
+              setIsSidebarOpen(true);
+            }
+          }}
           className={`relative h-9 w-9 rounded-xl text-gray-200 flex items-center justify-center transition-colors ${isInboxView && isSidebarOpen ? 'bg-white/[0.12]' : 'bg-white/[0.04] hover:bg-white/[0.08]'}`}
           title="Inbox"
         >
@@ -658,11 +691,11 @@ export default function ChatDashboard() {
 
       <aside className={`fixed inset-y-0 left-12 z-40 w-[300px] transform border-r border-white/10 bg-[#0c0e13]/95 backdrop-blur-2xl transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-          <h2 className="text-xl font-semibold tracking-tight text-white/95">{isInboxView ? 'Inbox' : 'Renzo'}</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-white/95">{isInboxView ? 'Inbox' : isSharedView ? 'Shared chats' : 'Renzo'}</h2>
           <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"><X size={18} /></button>
         </div>
 
-        {!isInboxView && (
+        {isOwnedView && (
           <div className="px-3 pt-3 space-y-1.5">
             <button
               onClick={() => { setActiveChatId(null); setMessages([]); setIsSidebarOpen(false); }}
@@ -703,10 +736,10 @@ export default function ChatDashboard() {
                 ))
               )}
             </div>
-          ) : (
+          ) : isOwnedView ? (
             <>
               <p className="px-2 mb-2 text-[11px] uppercase tracking-[0.16em] text-gray-500">Your chats</p>
-              <div className="space-y-1 mb-5">
+              <div className="space-y-1">
                 {chats.map((chat) => (
                   <button
                     key={chat._id}
@@ -719,6 +752,9 @@ export default function ChatDashboard() {
                 ))}
               </div>
 
+            </>
+          ) : (
+            <>
               <p className="px-2 mb-2 text-[11px] uppercase tracking-[0.16em] text-gray-500">Shared chats</p>
               <div className="space-y-1">
                 {sharedChats.length === 0 ? (
