@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, KeyRound, ArrowLeft } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import axiosClient from '../api/axiosClient';
 
@@ -56,79 +55,81 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black text-white">
       <Toaster position="top-center" reverseOrder={false} />
-      <div className="max-w-md w-full bg-gray-900/80 backdrop-blur-xl border border-gray-800 p-8 rounded-2xl shadow-[0_0_40px_rgba(236,72,153,0.1)] transform transition-all duration-500 hover:shadow-[0_0_60px_rgba(236,72,153,0.15)] hover:-translate-y-2">
-        
-        <div className="mb-6">
-          <Link to="/login" className="inline-flex items-center text-gray-400 hover:text-pink-400 transition-colors">
-            <ArrowLeft size={16} className="mr-2" />
-            Back to Login
-          </Link>
-        </div>
+      <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
 
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Reset Password</h1>
-          <p className="text-gray-400">
-            {step === 1 ? 'Enter your email to receive a reset code.' : 'Enter the code and your new password.'}
-          </p>
-        </div>
+        <section className="relative flex items-center justify-center px-8 py-10 lg:px-16 bg-[#18191c]">
+          <img src="/temp/renzologo.png" alt="Renzo" className="absolute top-6 left-6 h-6 w-6 object-contain" />
 
-        <form onSubmit={step === 1 ? handleRequestResetOtp : handleResetPassword} className="space-y-5">
-          {step === 1 ? (
-            /* Email Field */
-            <div className="relative group">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-pink-500 transition-colors" size={20} />
-              <input 
-                type="email" 
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Email Address" 
-                required
-                className="w-full bg-gray-950 border border-gray-800 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all"
-              />
-            </div>
-          ) : (
-            <>
-              /* OTP Field */
-              <div className="relative group animate-pulse">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-pink-500 transition-colors" size={20} />
-                <input 
-                  type="text" 
-                  name="otp"
-                  value={formData.otp}
+          <div className="w-full max-w-[400px]">
+            <h1 className="text-[38px] leading-[1.1] font-semibold tracking-tight text-white mb-2">
+              {step === 1 ? 'Reset Password' : 'Verify & Reset'}
+            </h1>
+            <p className="text-[15px] text-gray-400 mb-10">
+              {step === 1 ? 'Enter your email to receive a reset code.' : 'Enter OTP and your new password.'}
+            </p>
+
+            <form onSubmit={step === 1 ? handleRequestResetOtp : handleResetPassword} className="space-y-3">
+              {step === 1 ? (
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
                   onChange={handleChange}
-                  placeholder="Enter 6-digit OTP" 
+                  placeholder="Email"
                   required
-                  className="w-full bg-gray-950 border border-pink-500 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all tracking-widest text-center"
+                  className="w-full h-[52px] px-5 rounded-full border border-white/15 bg-[#0e1016] text-white placeholder:text-gray-500 focus:outline-none focus:border-white/40 text-[15px]"
                 />
-              </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    name="otp"
+                    value={formData.otp}
+                    onChange={handleChange}
+                    placeholder="6-digit OTP"
+                    required
+                    className="w-full h-[52px] px-5 rounded-full border border-white/20 bg-[#0e1016] text-white placeholder:text-gray-500 focus:outline-none focus:border-white/40 text-[15px] tracking-[0.3em] text-center"
+                  />
+                  <input
+                    type="password"
+                    name="newPassword"
+                    value={formData.newPassword}
+                    onChange={handleChange}
+                    placeholder="New Password"
+                    required
+                    className="w-full h-[52px] px-5 rounded-full border border-white/15 bg-[#0e1016] text-white placeholder:text-gray-500 focus:outline-none focus:border-white/40 text-[15px]"
+                  />
+                </>
+              )}
 
-              /* New Password Field */
-              <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-pink-500 transition-colors" size={20} />
-                <input 
-                  type="password" 
-                  name="newPassword"
-                  value={formData.newPassword}
-                  onChange={handleChange}
-                  placeholder="New Password" 
-                  required
-                  className="w-full bg-gray-950 border border-gray-800 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all"
-                />
-              </div>
-            </>
-          )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-[52px] rounded-full bg-white text-black text-[15px] font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : (step === 1 ? 'Send Reset Code' : 'Reset Password')}
+              </button>
+            </form>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-pink-600 hover:bg-pink-500 disabled:bg-pink-800 text-white font-semibold py-3 rounded-xl transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(236,72,153,0.4)]"
-          >
-            {loading ? 'Processing...' : (step === 1 ? 'Send Reset Code' : 'Reset Password')}
-          </button>
-        </form>
+            <p className="mt-10 text-[15px] text-gray-500">
+              Remembered your password?{' '}
+              <Link to="/login" className="text-white font-medium hover:text-gray-300 transition-colors">
+                Log in
+              </Link>
+            </p>
+          </div>
+        </section>
+
+        <section className="relative hidden lg:block overflow-hidden bg-[#0a0b0e]">
+          <img
+            src="/temp/renzologo.png"
+            alt="Renzo"
+            className="absolute inset-0 w-full h-full object-cover opacity-[1.02] select-none"
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_95%_5%,rgba(210,230,255,0.55)_0%,rgba(120,160,220,0.18)_35%,rgba(5,8,15,0.85)_68%)]" />
+        </section>
 
       </div>
     </div>
