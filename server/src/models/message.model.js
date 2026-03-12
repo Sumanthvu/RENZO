@@ -16,6 +16,16 @@ const messageSchema = new Schema(
       type: String,
       required: true,
     },
+    attachments: [
+      {
+        name: { type: String },
+        relativePath: { type: String },
+        type: { type: String },
+        size: { type: Number },
+        previewDataUrl: { type: String },
+        textContent: { type: String },
+      },
+    ],
   },
   {
     timestamps: true,

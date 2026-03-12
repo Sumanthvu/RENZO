@@ -16,9 +16,12 @@ export default function ChatDashboard() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState([]);
   const [editorCode, setEditorCode] = useState('# Code editor ready\n');
   const chatContainerRef = useRef(null);
   const profileMenuRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
   const userName = (() => {
     try {
       const rawUser = localStorage.getItem('user');
@@ -101,19 +104,151 @@ export default function ChatDashboard() {
     } catch (err) { console.error(err); }
   };
 
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isTextLikeFile = (file) => {
+    const textMimePrefixes = [
+      'text/',
+      'application/json',
+      'application/javascript',
+      'application/xml',
+      'application/x-sh',
+      'application/x-httpd-php'
+    ];
+    const textExtensions = [
+      '.txt', '.md', '.js', '.jsx', '.ts', '.tsx', '.json', '.html', '.css', '.py', '.java', '.c', '.cpp', '.h', '.cs', '.go', '.rs', '.xml', '.yml', '.yaml', '.env', '.sh'
+    ];
+
+    if (textMimePrefixes.some((prefix) => file.type.startsWith(prefix))) return true;
+    const lowerName = file.name.toLowerCase();
+    return textExtensions.some((ext) => lowerName.endsWith(ext));
+  };
+
+  const readFileAsDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const optimizeImageDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const image = new Image();
+
+      image.onload = () => {
+        try {
+          const maxSide = 1280;
+          const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+          const width = Math.max(1, Math.round(image.width * scale));
+          const height = Math.max(1, Math.round(image.height * scale));
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('Canvas context unavailable'));
+            return;
+          }
+
+          ctx.drawImage(image, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          URL.revokeObjectURL(objectUrl);
+          resolve(dataUrl);
+        } catch (err) {
+          URL.revokeObjectURL(objectUrl);
+          reject(err);
+        }
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
+      };
+
+      image.src = objectUrl;
+    });
+
+  const handleFilesPicked = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const processed = await Promise.all(
+      files.map(async (file) => {
+        const relativePath = file.webkitRelativePath || file.name;
+        const attachment = {
+          id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          relativePath,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          previewDataUrl: null,
+          textContent: null,
+        };
+
+        if ((file.type || '').startsWith('image/')) {
+          try {
+            attachment.previewDataUrl = await optimizeImageDataUrl(file);
+          } catch {
+            try {
+              attachment.previewDataUrl = await readFileAsDataUrl(file);
+            } catch {
+              attachment.previewDataUrl = null;
+            }
+          }
+          return attachment;
+        }
+
+        if (isTextLikeFile(file)) {
+          try {
+            const text = await file.text();
+            attachment.textContent = text.slice(0, 6000);
+          } catch {
+            attachment.textContent = null;
+          }
+        }
+
+        return attachment;
+      })
+    );
+
+    setAttachedFiles((prev) => [...prev, ...processed].slice(0, 20));
+    event.target.value = '';
+  };
+
+  const handleAttachClick = (event) => {
+    if (event?.shiftKey) {
+      folderInputRef.current?.click();
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
   const handleSendMessage = async (e) => {
     e?.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
+    if ((!inputMessage.trim() && !attachedFiles.length) || isLoading) return;
 
-    const userMsgContent = inputMessage;
+    const userMsgContent = inputMessage.trim() || 'Please analyze the attached files/images.';
+    const attachmentPayload = attachedFiles.map(({ id, ...rest }) => rest);
+
     setInputMessage('');
-    setMessages(prev => [...prev, { senderRole: 'user', content: userMsgContent }]);
+    setAttachedFiles([]);
+    setMessages(prev => [...prev, { senderRole: 'user', content: userMsgContent, attachments: attachmentPayload }]);
     setIsLoading(true);
 
     try {
       const res = await axiosClient.post(`${chatApiBase}/send`, {
         chatId: activeChatId,
-        content: userMsgContent
+        content: userMsgContent,
+        attachments: attachmentPayload,
       });
 
       const { aiMessage, chatId } = res.data.data;
@@ -124,7 +259,9 @@ export default function ChatDashboard() {
       }
     } catch (err) {
       console.error(err);
-      const serverMessage = err?.response?.data?.message || "Unable to generate AI response right now. Please check server logs/config.";
+      const serverMessage = err?.response?.status === 413
+        ? "Uploaded file is too large for current limit. Please upload a smaller image/file."
+        : err?.response?.data?.message || "Unable to generate AI response right now. Please check server logs/config.";
       setMessages(prev => [
         ...prev,
         {
@@ -159,37 +296,32 @@ export default function ChatDashboard() {
         <button className="h-9 w-9 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-gray-200 flex items-center justify-center transition-colors" onClick={() => setIsSidebarOpen((prev) => !prev)}>
           <Menu size={20} />
         </button>
-        <div className="mt-5 flex flex-col items-center gap-3 text-gray-400">
-          <button className="h-8 w-8 rounded-lg hover:bg-white/[0.06] flex items-center justify-center transition-colors"><MessageSquare size={16} /></button>
-          <button className="h-8 w-8 rounded-lg hover:bg-white/[0.06] flex items-center justify-center transition-colors"><Code size={16} /></button>
-          <button className="h-8 w-8 rounded-lg hover:bg-white/[0.06] flex items-center justify-center transition-colors"><Settings size={16} /></button>
-        </div>
       </div>
 
-      <aside className={`fixed inset-y-0 left-12 z-40 w-80 transform border-r border-white/10 bg-[#05080f]/92 backdrop-blur-2xl transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
+      <aside className={`fixed inset-y-0 left-12 z-40 w-[300px] transform border-r border-white/10 bg-[#0c0e13]/95 backdrop-blur-2xl transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <h2 className="text-xl font-semibold tracking-tight text-white/95">Renzo</h2>
-          <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"><X size={19} /></button>
+          <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"><X size={18} /></button>
         </div>
 
-        <div className="px-4 py-4">
+        <div className="px-3 pt-3 space-y-1.5">
           <button
             onClick={() => { setActiveChatId(null); setMessages([]); setIsSidebarOpen(false); }}
-            className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-3 bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] transition-colors"
+            className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] transition-colors"
           >
             <Plus size={17} className="text-gray-200" />
             <span className="text-sm font-medium text-gray-100">New chat</span>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-4 custom-scrollbar">
-          <p className="px-2 mb-2 text-[11px] uppercase tracking-[0.16em] text-gray-500">Recent</p>
+        <div className="flex-1 overflow-y-auto px-3 pb-4 pt-4 no-scrollbar smooth-scroll">
+          <p className="px-2 mb-2 text-[11px] uppercase tracking-[0.16em] text-gray-500">Your chats</p>
           <div className="space-y-1">
             {chats.map(chat => (
               <button
                 key={chat._id}
                 onClick={() => { setActiveChatId(chat._id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${activeChatId === chat._id ? 'bg-[#2a2f3a] text-white' : 'text-gray-300 hover:bg-white/[0.05]'}`}
+                className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${activeChatId === chat._id ? 'bg-white/10 text-white' : 'text-gray-300 hover:bg-white/[0.05]'}`}
               >
                 <MessageSquare size={15} className={`${activeChatId === chat._id ? 'text-white' : 'text-gray-500'}`} />
                 <span className="truncate text-sm">{chat.title}</span>
@@ -197,11 +329,29 @@ export default function ChatDashboard() {
             ))}
           </div>
         </div>
+
       </aside>
 
       {isSidebarOpen && <div className="fixed inset-y-0 right-0 left-12 z-30 bg-black/45" onClick={() => setIsSidebarOpen(false)} />}
 
       <div className="relative z-10 flex flex-col flex-1 min-w-0 ml-12">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFilesPicked}
+        />
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          webkitdirectory=""
+          directory=""
+          className="hidden"
+          onChange={handleFilesPicked}
+        />
+
         <header className="h-14 px-4 md:px-6 border-b border-white/10 bg-black/55 backdrop-blur-xl flex items-center justify-end">
 
           <div className="flex items-center gap-2.5">
@@ -232,11 +382,13 @@ export default function ChatDashboard() {
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center px-4">
               <div className="w-full max-w-3xl text-center -mt-10">
-                <div className="mx-auto mb-8 h-16 w-44 md:h-20 md:w-52">
+                <div className="mx-auto mb-8 h-24 w-64 md:h-28 md:w-80">
                   <img src="/temp/ui-logo.png" alt="Renzo logo" className="h-full w-full object-contain" />
                 </div>
                 <form onSubmit={handleSendMessage} className="mx-auto mt-2 relative w-full max-w-[720px] rounded-full border border-white/15 bg-[#0f1116]/88 backdrop-blur-xl">
-                  <Paperclip size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <button type="button" title="Attach files/images (Shift+click for folder)" onClick={handleAttachClick} className="absolute left-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-gray-400 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors">
+                    <Paperclip size={16} />
+                  </button>
                   <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder="What's on your mind?" className="w-full bg-transparent pl-11 pr-28 py-3.5 text-[21px] leading-none text-gray-100 placeholder-gray-500 focus:outline-none" />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                     <button type="button" className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/[0.08] flex items-center justify-center transition-colors">
@@ -247,6 +399,22 @@ export default function ChatDashboard() {
                     </button>
                   </div>
                 </form>
+                {attachedFiles.length > 0 && (
+                  <div className="mt-3 mx-auto w-full max-w-[720px] flex flex-wrap gap-2">
+                    {attachedFiles.map((file) => (
+                      <div key={file.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-2 w-[168px]">
+                        {file.previewDataUrl ? (
+                          <img src={file.previewDataUrl} alt={file.name} className="h-20 w-full rounded-lg object-cover" />
+                        ) : (
+                          <div className="h-20 w-full rounded-lg bg-black/40 border border-white/10 flex items-center justify-center text-xs text-gray-400 px-2 text-center">
+                            {file.name}
+                          </div>
+                        )}
+                        <p className="mt-1 text-[11px] text-gray-300 truncate" title={file.relativePath}>{file.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <p className="mt-6 text-[13px] text-gray-500">Renzo can make mistakes. Verify important information.</p>
               </div>
             </div>
@@ -255,8 +423,24 @@ export default function ChatDashboard() {
               {messages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[92%] md:max-w-[82%] rounded-2xl px-4 py-3.5 border backdrop-blur-md ${msg.senderRole === 'user' ? 'bg-[#171b26] border-white/10 text-gray-100' : 'bg-[#0f1116] border-white/10 text-gray-200'}`}>
+                    {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {msg.attachments.map((file, fileIdx) => (
+                          <div key={`${file.name}-${fileIdx}`} className="rounded-xl border border-white/10 bg-white/[0.04] p-2 w-[168px]">
+                            {file.previewDataUrl ? (
+                              <img src={file.previewDataUrl} alt={file.name} className="h-20 w-full rounded-lg object-cover" />
+                            ) : (
+                              <div className="h-20 w-full rounded-lg bg-black/40 border border-white/10 flex items-center justify-center text-xs text-gray-400 px-2 text-center">
+                                {file.name}
+                              </div>
+                            )}
+                            <p className="mt-1 text-[11px] text-gray-300 truncate" title={file.relativePath || file.name}>{file.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className={`text-[15px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0f141d] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto ${msg.senderRole === 'user' ? 'prose-p:text-gray-100' : 'prose-p:text-gray-200'}`}>
-                      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content || ''}</ReactMarkdown>
                     </div>
                   </div>
                 </div>
@@ -281,7 +465,9 @@ export default function ChatDashboard() {
           <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 pt-10 bg-gradient-to-t from-black via-black/80 to-transparent">
             <div className="w-full max-w-4xl mx-auto">
               <form onSubmit={handleSendMessage} className="relative rounded-full border border-white/15 bg-[#0f1116]/90 backdrop-blur-xl">
-                <Paperclip size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <button type="button" title="Attach files/images (Shift+click for folder)" onClick={handleAttachClick} className="absolute left-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-gray-400 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors">
+                  <Paperclip size={16} />
+                </button>
                 <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder="What's on your mind?" className="w-full bg-transparent pl-11 pr-28 py-3.5 text-[15px] text-gray-100 placeholder-gray-500 focus:outline-none" />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                   <button type="button" className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/[0.08] flex items-center justify-center transition-colors">
@@ -292,6 +478,22 @@ export default function ChatDashboard() {
                   </button>
                 </div>
               </form>
+              {attachedFiles.length > 0 && (
+                <div className="mt-2 px-1 flex flex-wrap gap-2">
+                  {attachedFiles.map((file) => (
+                    <div key={file.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-2 w-[150px]">
+                      {file.previewDataUrl ? (
+                        <img src={file.previewDataUrl} alt={file.name} className="h-16 w-full rounded-lg object-cover" />
+                      ) : (
+                        <div className="h-16 w-full rounded-lg bg-black/40 border border-white/10 flex items-center justify-center text-[10px] text-gray-400 px-2 text-center">
+                          {file.name}
+                        </div>
+                      )}
+                      <p className="mt-1 text-[10px] text-gray-300 truncate" title={file.relativePath}>{file.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

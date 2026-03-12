@@ -71,6 +71,64 @@ const getRetryDelaySeconds = (error) => {
   return Number.isNaN(seconds) ? null : seconds;
 };
 
+const sanitizeAttachments = (attachments) => {
+  if (!Array.isArray(attachments)) return [];
+
+  return attachments.slice(0, 20).map((item) => ({
+    name: String(item?.name || "file").slice(0, 300),
+    relativePath: String(item?.relativePath || item?.name || "file").slice(0, 500),
+    type: String(item?.type || "application/octet-stream").slice(0, 120),
+    size: Number(item?.size || 0),
+    previewDataUrl: item?.previewDataUrl ? String(item.previewDataUrl) : undefined,
+    textContent: item?.textContent ? String(item.textContent).slice(0, 12000) : undefined,
+  }));
+};
+
+const buildGeminiPartsFromMessage = (message, { includeAttachmentData = true } = {}) => {
+  const parts = [];
+
+  if (message?.content) {
+    parts.push({ text: message.content });
+  }
+
+  const attachments = Array.isArray(message?.attachments) ? message.attachments : [];
+
+  for (const attachment of attachments) {
+    const fileName = attachment?.relativePath || attachment?.name || "file";
+    const mimeType = attachment?.type || "application/octet-stream";
+
+    if (!includeAttachmentData) {
+      parts.push({ text: `Previously attached file: ${fileName}` });
+      continue;
+    }
+
+    if (mimeType.startsWith("image/") && attachment?.previewDataUrl?.includes(",")) {
+      const base64Data = attachment.previewDataUrl.split(",")[1];
+      if (base64Data) {
+        parts.push({
+          inlineData: {
+            mimeType,
+            data: base64Data,
+          },
+        });
+      }
+      parts.push({ text: `Attached image: ${fileName}` });
+      continue;
+    }
+
+    if (attachment?.textContent) {
+      parts.push({ text: `Attached file (${fileName}):\n${attachment.textContent}` });
+      continue;
+    }
+
+    parts.push({
+      text: `Attached file: ${fileName} (${mimeType}, ${attachment?.size || 0} bytes)`,
+    });
+  }
+
+  return parts.length ? parts : [{ text: "" }];
+};
+
 const createNewChat = asyncHandler(async (req, res) => {
   const newChat = await Chat.create({
     userId: req.user._id,
@@ -94,16 +152,21 @@ const getChatMessages = asyncHandler(async (req, res) => {
 });
 
 const sendMessage = asyncHandler(async (req, res) => {
-  const { chatId, content } = req.body;
+  const { chatId, content, attachments } = req.body;
+  const normalizedAttachments = sanitizeAttachments(attachments);
 
-  if (!content) throw new ApiError(400, "Content required");
+  if (!content && !normalizedAttachments.length) {
+    throw new ApiError(400, "Content or attachments required");
+  }
+
+  const normalizedContent = String(content || "Please analyze the attached files/images.").trim();
 
   let currentChatId = chatId;
 
   if (!currentChatId) {
     const newChat = await Chat.create({
       userId: req.user._id,
-      title: content.substring(0, 30),
+      title: normalizedContent.substring(0, 30),
     });
     currentChatId = newChat._id;
   }
@@ -111,15 +174,20 @@ const sendMessage = asyncHandler(async (req, res) => {
   const userMessage = await Message.create({
     chatId: currentChatId,
     senderRole: "user",
-    content,
+    content: normalizedContent,
+    attachments: normalizedAttachments,
   });
 
   const history = await Message.find({ chatId: currentChatId }).sort({
     createdAt: 1,
   });
+  const latestMessageId = String(userMessage._id);
   const googleHistory = history.map((msg) => ({
     role: msg.senderRole === "ai" ? "model" : "user",
-    parts: [{ text: msg.content }],
+    parts: buildGeminiPartsFromMessage(msg, {
+      includeAttachmentData:
+        msg.senderRole === "user" && String(msg._id) === latestMessageId,
+    }),
   }));
 
   let aiText = "";
@@ -138,20 +206,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     for (const modelName of modelCandidates) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
-        const priorConversation = googleHistory
-          .slice(0, -1)
-          .map((entry) => {
-            const role = entry.role === "model" ? "Assistant" : "User";
-            const text = entry?.parts?.[0]?.text || "";
-            return `${role}: ${text}`;
-          })
-          .join("\n");
-
-        const prompt = priorConversation
-          ? `${priorConversation}\nUser: ${content}\nAssistant:`
-          : content;
-
-        const result = await model.generateContent(prompt);
+        const result = await model.generateContent({ contents: googleHistory });
         aiText = result.response.text();
         lastModelError = null;
         break;
