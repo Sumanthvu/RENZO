@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Menu, Plus, MessageSquare, Settings, Play, User, Send, X, Code, Terminal, PanelRightOpen, PanelRightClose, Paperclip, Mic } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Settings, Play, User, Send, X, Code, Terminal, PanelRightOpen, PanelRightClose, Paperclip, Mic, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
+import remarkGfm from 'remark-gfm';
 import axiosClient from '../api/axiosClient';
 import { useNavigate } from 'react-router-dom';
 import { getSocket, disconnectSocket } from '../socket/socketClient';
@@ -416,8 +417,82 @@ export default function ChatDashboard() {
     }
   };
 
+  /* ── Grok-style code block with language label + copy button ── */
+  const extractText = (node) => {
+    if (typeof node === 'string') return node;
+    if (Array.isArray(node)) return node.map(extractText).join('');
+    if (node?.props?.children) return extractText(node.props.children);
+    return '';
+  };
+
+  const GrokCodeBlock = ({ children, ...rest }) => {
+    const [copied, setCopied] = useState(false);
+    const codeEl = Array.isArray(children) ? children[0] : children;
+    const rawClassName = codeEl?.props?.className || '';
+    const language = rawClassName
+      .split(' ')
+      .find((c) => c.startsWith('language-'))
+      ?.replace('language-', '') || '';
+    const displayLang = language || 'code';
+    const rawCode = extractText(codeEl?.props?.children);
+
+    const handleCopy = () => {
+      navigator.clipboard.writeText(rawCode).catch(() => {});
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+      <div className="my-4 rounded-xl overflow-hidden border border-white/[0.08] bg-[#0d1017]">
+        <div className="flex items-center justify-between px-4 py-2 bg-[#161b24] border-b border-white/[0.08]">
+          <span className="text-[12px] font-mono text-gray-400 select-none">{displayLang}</span>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-white transition-colors"
+          >
+            {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+            <span>{copied ? 'Copied!' : 'Copy'}</span>
+          </button>
+        </div>
+        <div className="overflow-x-auto px-4 py-3.5">
+          <pre className="m-0 text-[13.5px] leading-[1.6] font-mono whitespace-pre" {...rest}>{children}</pre>
+        </div>
+      </div>
+    );
+  };
+
+  const mdComponents = {
+    pre: GrokCodeBlock,
+    p: ({ children }) => <p className="my-5 leading-[1.9] text-gray-100 whitespace-pre-line">{children}</p>,
+    ul: ({ children }) => <ul className="my-5 pl-6 space-y-2.5 list-disc">{children}</ul>,
+    ol: ({ children }) => <ol className="my-5 pl-6 space-y-3 list-decimal">{children}</ol>,
+    li: ({ children }) => <li className="leading-[1.85]">{children}</li>,
+    h1: ({ children }) => <h1 className="mt-8 mb-4 text-[24px] font-semibold text-white leading-tight">{children}</h1>,
+    h2: ({ children }) => <h2 className="mt-7 mb-3.5 text-[21px] font-semibold text-white leading-tight">{children}</h2>,
+    h3: ({ children }) => <h3 className="mt-6 mb-3 text-[18px] font-semibold text-white leading-tight">{children}</h3>,
+    blockquote: ({ children }) => <blockquote className="my-5 border-l-2 border-white/20 pl-4 text-gray-300 italic">{children}</blockquote>,
+  };
+
+  /* ── Reusable inline copy button for full AI response ── */
+  const CopyButton = ({ text }) => {
+    const [copied, setCopied] = useState(false);
+    return (
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(text || '').catch(() => {});
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-all"
+      >
+        {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+        <span>{copied ? 'Copied' : 'Copy'}</span>
+      </button>
+    );
+  };
+
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-black text-white font-sans flex">
+    <div className="relative h-screen w-full overflow-hidden bg-black text-white flex" style={{ fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}>
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(72,96,145,0.14),transparent_38%),linear-gradient(180deg,#040507_0%,#020203_100%)]" />
       </div>
@@ -550,11 +625,12 @@ export default function ChatDashboard() {
               </div>
             </div>
           ) : (
-            <div className="w-full max-w-4xl mx-auto px-4 md:px-6 py-8 pb-40 space-y-6">
+            <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-8 pb-40 space-y-6">
               {messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start w-full'}`}>
                   {msg.senderRole === 'user' ? (
-                    <div className="flex flex-col items-end gap-1.5 max-w-[92%] md:max-w-[82%]">
+                    /* ── User bubble — compact pill, right-aligned ── */
+                    <div className="flex flex-col items-end gap-1.5 max-w-[78%]">
                       {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
                         <div className="flex flex-wrap gap-2 justify-end">
                           {msg.attachments.map((file, fileIdx) => (
@@ -562,37 +638,53 @@ export default function ChatDashboard() {
                               {file.previewDataUrl ? (
                                 <img src={file.previewDataUrl} alt={file.name} className="h-28 w-28 object-cover rounded-xl border border-white/15 hover:opacity-90 transition-opacity" onClick={() => setPreviewImage(file.previewDataUrl)} />
                               ) : (
-                                <div className="h-24 w-28 rounded-xl bg-[#171b26] border border-white/10 flex items-center justify-center text-[10px] text-gray-400 px-2 text-center">{file.name}</div>
+                                <div className="h-24 w-28 rounded-xl bg-[#1e2130] border border-white/10 flex items-center justify-center text-[10px] text-gray-400 px-2 text-center">{file.name}</div>
                               )}
                               <p className="mt-0.5 text-[9px] text-gray-500 truncate w-28 text-center">{file.name}</p>
                             </div>
                           ))}
                         </div>
                       )}
-                      <div className="rounded-2xl px-4 py-3.5 border border-white/10 bg-[#171b26] backdrop-blur-md text-gray-100">
-                        <div className="text-[15px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0f141d] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto prose-p:text-gray-100">
-                          <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content || ''}</ReactMarkdown>
-                        </div>
+                      <div className="rounded-2xl px-4 py-3 bg-[#1e2130] text-gray-100 text-[15px] leading-[1.7]">
+                        {msg.content || ''}
                       </div>
                     </div>
                   ) : (
-                    <div className="max-w-[92%] md:max-w-[82%] rounded-2xl px-4 py-3.5 border border-white/10 bg-[#0f1116] backdrop-blur-md text-gray-200">
-                      <div className="text-[15px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0f141d] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto prose-p:text-gray-200">
-                        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content || ''}</ReactMarkdown>
+                    /* ── AI response — no box, plain text like Grok ── */
+                    <div className="w-full group/ai">
+                      <div className="text-[16px] leading-[1.9] tracking-[0.003em] text-gray-100
+                        prose prose-invert max-w-none
+                        prose-p:my-0 prose-p:text-gray-100 prose-p:leading-[1.9]
+                        prose-headings:my-0 prose-headings:text-white prose-headings:font-semibold
+                        prose-h1:text-[22px] prose-h2:text-[19px] prose-h3:text-[17px]
+                        prose-ul:my-0 prose-ul:pl-0 prose-ol:my-0 prose-ol:pl-0
+                        prose-li:my-0 prose-li:text-gray-100
+                        prose-strong:text-white prose-strong:font-semibold
+                        prose-em:text-gray-200
+                        prose-hr:my-7 prose-hr:border-white/10
+                        prose-blockquote:border-l-white/20 prose-blockquote:text-gray-300
+                        prose-table:text-[14px] prose-th:text-gray-200 prose-td:text-gray-300
+                        prose-code:text-blue-300 prose-code:text-[13.5px] prose-code:font-mono prose-code:before:content-none prose-code:after:content-none prose-code:bg-white/[0.06] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
+                        prose-pre:p-0 prose-pre:bg-transparent prose-pre:my-0">
+                        <ReactMarkdown components={mdComponents} remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{msg.content || ''}</ReactMarkdown>
                       </div>
+                      {/* Copy entire response button — appears on hover */}
+                      {!msg.isStreaming && msg.content && (
+                        <div className="mt-2 opacity-0 group-hover/ai:opacity-100 transition-opacity">
+                          <CopyButton text={msg.content} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               ))}
 
               {isLoading && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl px-4 py-3 border border-white/10 bg-[#0f1116] backdrop-blur-md text-gray-300">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '140ms' }} />
-                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '280ms' }} />
-                    </div>
+                <div className="flex justify-start w-full">
+                  <div className="flex items-center gap-1.5 py-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '140ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '280ms' }} />
                   </div>
                 </div>
               )}
@@ -602,7 +694,7 @@ export default function ChatDashboard() {
 
         {messages.length > 0 && (
           <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 pt-10 bg-gradient-to-t from-black via-black/80 to-transparent">
-            <div className="w-full max-w-4xl mx-auto">
+            <div className="w-full max-w-3xl mx-auto">
               {attachedFiles.length > 0 && (
                 <div className="mb-2 px-1 flex flex-wrap gap-2">
                   {attachedFiles.map((file) => (
