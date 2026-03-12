@@ -139,7 +139,7 @@ export default function ChatDashboard() {
 
   const handleLogout = async () => {
     try {
-      await axiosClient.post('/logout');
+      await axiosClient.post('logout');
     } catch (err) {
       console.error(err);
     } finally {
@@ -150,103 +150,114 @@ export default function ChatDashboard() {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#0B0F19] text-white font-sans flex">
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-fuchsia-600/10 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-[-46%] md:bottom-[-42%] lg:bottom-[-36%] xl:bottom-[-33%] w-[230%] md:w-[190%] lg:w-[165%] xl:w-[150%] h-[86%] md:h-[82%] lg:h-[76%] rounded-[100%] bg-gradient-to-t from-[#0a2550]/75 via-[#123f75]/30 to-transparent"></div>
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-[19%] md:bottom-[17%] lg:bottom-[15%] w-[125%] md:w-[100%] lg:w-[84%] xl:w-[74%] h-[2px] bg-gradient-to-r from-transparent via-cyan-300/65 to-transparent blur-[0.5px]"></div>
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-[18%] md:bottom-[16%] lg:bottom-[14%] w-[105%] md:w-[82%] lg:w-[68%] h-16 md:h-14 bg-cyan-400/10 blur-3xl rounded-full"></div>
+    <div className="relative h-screen w-full overflow-hidden bg-[#070a12] text-white font-sans flex">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(64,124,255,0.18),transparent_35%),radial-gradient(circle_at_85%_100%,rgba(31,84,201,0.16),transparent_38%),linear-gradient(180deg,#0b1220_0%,#070a12_55%,#070a12_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:44px_44px] opacity-25" />
       </div>
 
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 transform bg-gradient-to-b from-[#0F1A32]/95 via-[#101B35]/95 to-[#0D162C]/95 backdrop-blur-2xl border-r border-white/10 transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 mb-1 border-b border-white/10">
-          <div>
-            <h2 className="text-[36px] font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 leading-none">SparkShell</h2>
-            <p className="text-[11px] text-gray-400 mt-1 tracking-[0.2em] uppercase">Mission Log</p>
-          </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><X size={20} /></button>
+      <aside className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-white/10 bg-[#0b111d]/88 backdrop-blur-2xl transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
+          <h2 className="text-xl font-semibold tracking-tight text-white/95">SparkShell</h2>
+          <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"><X size={19} /></button>
         </div>
-        <div className="px-4 mt-3 mb-5">
-          <button onClick={() => { setActiveChatId(null); setMessages([]); setIsSidebarOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl bg-blue-500/10 border border-blue-400/30 text-blue-300 hover:bg-blue-500/20 transition-all shadow-[0_8px_24px_rgba(59,130,246,0.15)]">
-            <Plus size={18} /> <span className="font-medium">New Chat</span>
+
+        <div className="px-4 py-4">
+          <button
+            onClick={() => { setActiveChatId(null); setMessages([]); setIsSidebarOpen(false); }}
+            className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-3 bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] transition-colors"
+          >
+            <Plus size={17} className="text-gray-200" />
+            <span className="text-sm font-medium text-gray-100">New chat</span>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
-          <div className="text-xs font-semibold text-gray-500 mb-2 px-2 uppercase tracking-[0.14em]">Recent</div>
-          {chats.map(chat => (
-            <button key={chat._id} onClick={() => { setActiveChatId(chat._id); setIsSidebarOpen(false); }} className={`group flex items-center gap-3 w-full px-3 py-3 rounded-xl text-left transition-all border ${activeChatId === chat._id ? 'bg-white/10 border-white/10 text-white shadow-[0_8px_16px_rgba(0,0,0,0.2)]' : 'border-transparent text-gray-300 hover:bg-white/5 hover:border-white/5 hover:text-white'}`}>
-              <MessageSquare size={16} className={activeChatId === chat._id ? "text-blue-300" : "text-gray-500 group-hover:text-blue-300"} />
-              <span className="truncate text-sm">{chat.title}</span>
-            </button>
-          ))}
-        </div>
-      </div>
 
-      <div className="flex flex-col flex-1 relative z-10 w-full overflow-hidden transition-all duration-300">
-        <header className="flex items-center justify-between px-4 py-3 shrink-0 z-20 bg-[#0B0F19]/80 backdrop-blur-sm">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"><Menu size={24} /></button>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsSandboxOpen(!isSandboxOpen)} className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-medium text-sm ${isSandboxOpen ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10'}`}>
-              {isSandboxOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />} <span className="hidden sm:inline">Sandbox</span>
-            </button>
-            <div className="relative" ref={profileMenuRef}>
+        <div className="flex-1 overflow-y-auto px-3 pb-4 custom-scrollbar">
+          <p className="px-2 mb-2 text-[11px] uppercase tracking-[0.16em] text-gray-500">Recent</p>
+          <div className="space-y-1">
+            {chats.map(chat => (
               <button
-                onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 p-[2px] hover:scale-105 transition-transform"
+                key={chat._id}
+                onClick={() => { setActiveChatId(chat._id); setIsSidebarOpen(false); }}
+                className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${activeChatId === chat._id ? 'bg-[#2a2f3a] text-white' : 'text-gray-300 hover:bg-white/[0.05]'}`}
               >
-                <div className="h-full w-full rounded-full bg-[#0B0F19] flex items-center justify-center"><User size={16} className="text-white" /></div>
+                <MessageSquare size={15} className={`${activeChatId === chat._id ? 'text-white' : 'text-gray-500'}`} />
+                <span className="truncate text-sm">{chat.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      {isSidebarOpen && <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setIsSidebarOpen(false)} />}
+
+      <div className="relative z-10 flex flex-col flex-1 min-w-0">
+        <header className="h-16 px-4 md:px-6 border-b border-white/10 bg-[#0b111d]/70 backdrop-blur-xl flex items-center justify-between">
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"><Menu size={22} /></button>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsSandboxOpen(!isSandboxOpen)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${isSandboxOpen ? 'border-blue-400/40 bg-blue-500/15 text-blue-200' : 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08]'}`}
+            >
+              {isSandboxOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              <span className="hidden sm:inline">Sandbox</span>
+            </button>
+
+            <div className="relative" ref={profileMenuRef}>
+              <button onClick={() => setIsProfileMenuOpen((prev) => !prev)} className="h-9 w-9 rounded-full border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center transition-colors">
+                <User size={15} className="text-gray-200" />
               </button>
 
               {isProfileMenuOpen && (
-                <div className="absolute right-0 top-12 w-52 rounded-xl border border-white/10 bg-[#111827]/95 backdrop-blur-xl shadow-lg p-2 z-50">
-                  <div className="px-3 py-2 text-sm text-gray-200 border-b border-white/10 truncate">{userName}</div>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-3 py-2 mt-1 rounded-lg text-sm text-red-400 hover:bg-white/5 transition-colors"
-                  >
-                    Log out
-                  </button>
+                <div className="absolute right-0 top-11 w-56 rounded-xl border border-white/10 bg-[#1b1f28] shadow-2xl p-1.5 z-50">
+                  <div className="px-3 py-2 text-sm text-gray-200 truncate border-b border-white/10">{userName}</div>
+                  <button onClick={handleLogout} className="w-full text-left mt-1 rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-white/5 transition-colors">Log out</button>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        <main ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto scroll-smooth custom-scrollbar flex flex-col">
+        <main ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
           {messages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center px-4 max-w-3xl mx-auto w-full -mt-20">
-              <h1 className="text-3xl md:text-4xl font-semibold mb-8 text-white/90 text-center tracking-tight">What will we build today?</h1>
-              <form onSubmit={handleSendMessage} className="w-full relative flex items-center bg-[#1E293B]/60 border border-white/10 rounded-2xl backdrop-blur-xl shadow-[0_0_40px_rgba(0,0,0,0.5)] focus-within:border-blue-500/50 transition-all group">
-                <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder="Message SparkShell AI..." className="w-full bg-transparent text-white placeholder-gray-500 px-6 py-4 md:py-5 focus:outline-none text-base" />
-                <button type="submit" className="absolute right-3 p-2.5 rounded-xl bg-white/10 hover:bg-blue-600 text-white transition-all group-focus-within:bg-blue-600"><Send size={18} /></button>
-              </form>
+            <div className="h-full flex flex-col items-center justify-center px-4">
+              <div className="w-full max-w-3xl text-center">
+                <div className="mx-auto mb-7 relative h-24 w-24 md:h-28 md:w-28">
+                  <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-2xl" />
+                  <div className="absolute inset-[10%] rounded-full border border-blue-300/45 bg-gradient-to-br from-blue-300/35 via-sky-300/15 to-transparent shadow-[0_0_55px_rgba(96,165,250,0.42)]" />
+                  <div className="absolute inset-[28%] rounded-full bg-white/85" />
+                </div>
+                <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-white/95">Ask anything</h1>
+                <p className="mt-3 text-gray-300/90 text-sm md:text-base">Search, reason, and build with SparkShell.</p>
+                <form onSubmit={handleSendMessage} className="mt-8 relative rounded-2xl border border-white/15 bg-[#111827]/78 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+                  <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder="Message SparkShell..." className="w-full bg-transparent px-5 py-4 md:py-5 pr-14 text-base text-gray-100 placeholder-gray-500 focus:outline-none" />
+                  <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg bg-white/10 hover:bg-blue-600 transition-colors flex items-center justify-center">
+                    <Send size={16} />
+                  </button>
+                </form>
+              </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col px-4 md:px-6 pt-6 md:pt-8 pb-44 gap-8 max-w-5xl mx-auto w-full">
+            <div className="w-full max-w-4xl mx-auto px-4 md:px-6 py-8 pb-40 space-y-6">
               {messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start items-start gap-3 md:gap-4'}`}>
-                  {msg.senderRole === 'ai' && (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.3)] mt-1.5">
-                      <span className="text-white text-[10px] font-bold">AI</span>
-                    </div>
-                  )}
-                  <div className={`max-w-[92%] md:max-w-[85%] ${msg.senderRole === 'user' ? 'px-4 py-3.5 rounded-2xl rounded-tr-sm bg-[#1E293B] border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.25)]' : 'px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10'}`}>
-                    <div className={`text-[15px] md:text-[15.5px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0B1220] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto ${msg.senderRole === 'user' ? 'text-gray-100 prose-p:text-gray-100' : 'text-gray-200 prose-p:text-gray-200'}`}>
+                <div key={idx} className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[92%] md:max-w-[82%] rounded-2xl px-4 py-3.5 border backdrop-blur-md ${msg.senderRole === 'user' ? 'bg-[#233047]/85 border-blue-300/20 text-gray-100' : 'bg-[#101724]/88 border-white/10 text-gray-200'}`}>
+                    <div className={`text-[15px] leading-7 prose prose-invert max-w-none prose-p:my-3 prose-headings:my-4 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-white prose-code:text-blue-300 prose-code:before:content-none prose-code:after:content-none prose-pre:my-4 prose-pre:rounded-xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#0f141d] prose-pre:px-4 prose-pre:py-3 prose-pre:overflow-x-auto ${msg.senderRole === 'user' ? 'prose-p:text-gray-100' : 'prose-p:text-gray-200'}`}>
                       <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content}</ReactMarkdown>
                     </div>
                   </div>
                 </div>
               ))}
+
               {isLoading && (
-                <div className="flex items-start gap-3 md:gap-4">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 mt-1.5">
-                    <span className="text-white text-[10px] font-bold">AI</span>
-                  </div>
-                  <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="flex justify-start">
+                  <div className="rounded-2xl px-4 py-3 border border-white/10 bg-[#101724]/88 backdrop-blur-md text-gray-300">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '140ms' }} />
+                      <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '280ms' }} />
+                    </div>
                   </div>
                 </div>
               )}
@@ -255,11 +266,13 @@ export default function ChatDashboard() {
         </main>
 
         {messages.length > 0 && (
-          <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/90 to-transparent pt-12 pb-6 px-4">
-            <div className="max-w-3xl mx-auto relative">
-              <form onSubmit={handleSendMessage} className="relative flex items-center bg-[#1E293B]/80 border border-white/10 rounded-2xl backdrop-blur-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] focus-within:border-blue-500/50 transition-all group">
-                <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder="Message SparkShell AI..." className="w-full bg-transparent text-white placeholder-gray-400 px-6 py-4 focus:outline-none text-[15px]" />
-                <button type="submit" disabled={!inputMessage.trim()} className="absolute right-2 p-2.5 rounded-xl bg-white/10 hover:bg-blue-600 text-white transition-all disabled:opacity-30 group-focus-within:bg-blue-600"><Send size={18} /></button>
+          <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 pt-10 bg-gradient-to-t from-[#070b13]/95 via-[#070b13]/78 to-transparent">
+            <div className="w-full max-w-4xl mx-auto">
+              <form onSubmit={handleSendMessage} className="relative rounded-2xl border border-white/15 bg-[#111827]/82 backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+                <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder="Message SparkShell..." className="w-full bg-transparent px-5 py-4 pr-14 text-[15px] text-gray-100 placeholder-gray-500 focus:outline-none" />
+                <button type="submit" disabled={!inputMessage.trim()} className="absolute right-2.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg bg-white/10 hover:bg-blue-600 transition-colors disabled:opacity-40 flex items-center justify-center">
+                  <Send size={16} />
+                </button>
               </form>
             </div>
           </div>

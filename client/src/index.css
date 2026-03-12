@@ -1,1 +1,122 @@
 @import "tailwindcss";
+
+.starfield {
+	position: absolute;
+	inset: 0;
+	background-repeat: repeat;
+	pointer-events: none;
+}
+
+.starfield-slow {
+	opacity: 0.3;
+	background-image:
+		radial-gradient(1px 1px at 8% 14%, rgba(255,255,255,0.8), transparent 60%),
+		radial-gradient(1.5px 1.5px at 42% 28%, rgba(129,212,250,0.9), transparent 60%),
+		radial-gradient(1px 1px at 77% 19%, rgba(255,255,255,0.7), transparent 60%),
+		radial-gradient(1.5px 1.5px at 62% 64%, rgba(186,104,200,0.8), transparent 60%),
+		radial-gradient(1px 1px at 19% 71%, rgba(255,255,255,0.9), transparent 60%);
+	animation: starDriftSlow 120s linear infinite;
+}
+
+.starfield-fast {
+	opacity: 0.22;
+	background-image:
+		radial-gradient(1px 1px at 14% 38%, rgba(255,255,255,0.8), transparent 60%),
+		radial-gradient(1px 1px at 58% 12%, rgba(129,212,250,0.8), transparent 60%),
+		radial-gradient(1.5px 1.5px at 88% 44%, rgba(255,255,255,0.75), transparent 60%),
+		radial-gradient(1px 1px at 33% 82%, rgba(186,104,200,0.75), transparent 60%),
+		radial-gradient(1px 1px at 71% 73%, rgba(255,255,255,0.9), transparent 60%);
+	animation: starDriftFast 72s linear infinite;
+}
+
+.nebula-core {
+	position: absolute;
+	left: 50%;
+	top: 42%;
+	width: min(38vw, 460px);
+	height: min(38vw, 460px);
+	transform: translate(-50%, -50%);
+	border-radius: 9999px;
+	background:
+		radial-gradient(circle at 45% 42%, rgba(129, 212, 250, 0.32), rgba(129, 212, 250, 0.04) 40%, transparent 70%),
+		radial-gradient(circle at 62% 58%, rgba(186, 104, 200, 0.26), rgba(186, 104, 200, 0.04) 42%, transparent 72%);
+	filter: blur(8px);
+	animation: nebulaPulse 8s ease-in-out infinite;
+	pointer-events: none;
+}
+
+.cosmic-signal {
+	position: relative;
+	overflow: hidden;
+}
+
+.cosmic-signal::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(110deg, transparent 15%, rgba(129,212,250,0.08) 50%, transparent 85%);
+	transform: translateX(-140%);
+	animation: signalSweep 6.8s ease-in-out infinite;
+	pointer-events: none;
+}
+
+.cosmic-user {
+	box-shadow: 0 0 0 1px rgba(129, 212, 250, 0.08), 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+.orbit-loader {
+	position: relative;
+	width: 24px;
+	height: 24px;
+	animation: orbitSpin 2.2s linear infinite;
+}
+
+.orbit-dot {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 6px;
+	height: 6px;
+	border-radius: 9999px;
+	transform-origin: 0 0;
+}
+
+.orbit-dot-1 {
+	background: #7dd3fc;
+	transform: translate(-50%, -50%) rotate(0deg) translateX(10px);
+}
+
+.orbit-dot-2 {
+	background: #a78bfa;
+	transform: translate(-50%, -50%) rotate(120deg) translateX(10px);
+}
+
+.orbit-dot-3 {
+	background: #60a5fa;
+	transform: translate(-50%, -50%) rotate(240deg) translateX(10px);
+}
+
+@keyframes starDriftSlow {
+	0% { transform: translateY(0px) scale(1); }
+	100% { transform: translateY(40px) scale(1.02); }
+}
+
+@keyframes starDriftFast {
+	0% { transform: translateY(0px) translateX(0px); }
+	100% { transform: translateY(70px) translateX(-18px); }
+}
+
+@keyframes nebulaPulse {
+	0%, 100% { opacity: 0.62; transform: translate(-50%, -50%) scale(0.96); }
+	50% { opacity: 0.85; transform: translate(-50%, -50%) scale(1.03); }
+}
+
+@keyframes signalSweep {
+	0%, 100% { transform: translateX(-140%); }
+	45% { transform: translateX(140%); }
+}
+
+@keyframes orbitSpin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
