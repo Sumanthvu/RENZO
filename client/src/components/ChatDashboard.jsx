@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import axiosClient from '../api/axiosClient';
 import { useNavigate } from 'react-router-dom';
+import { getSocket, disconnectSocket } from '../socket/socketClient';
 
 export default function ChatDashboard() {
   const navigate = useNavigate();
@@ -23,6 +24,11 @@ export default function ChatDashboard() {
   const profileMenuRef = useRef(null);
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+  /* Keeps activeChatId accessible inside socket event closures */
+  const activeChatIdRef = useRef(activeChatId);
+  const typingQueueRef = useRef([]);
+  const typingIntervalRef = useRef(null);
+  const pendingAiDoneRef = useRef(null);
   const userName = (() => {
     try {
       const rawUser = localStorage.getItem('user');
@@ -48,7 +54,141 @@ export default function ChatDashboard() {
     } else {
       localStorage.removeItem('activeChatId');
     }
+    activeChatIdRef.current = activeChatId;
   }, [activeChatId]);
+
+  const finalizeAiMessage = ({ aiMessage, chatId }) => {
+    setMessages((prev) => {
+      const updated = [...prev];
+      const idx = updated.findLastIndex((m) => m.isStreaming);
+      if (idx >= 0) {
+        updated[idx] = { ...aiMessage, isStreaming: false };
+        return updated;
+      }
+
+      return [...updated, aiMessage];
+    });
+
+    if (!activeChatIdRef.current) {
+      setActiveChatId(chatId);
+      fetchChats();
+    }
+
+    setIsLoading(false);
+    pendingAiDoneRef.current = null;
+  };
+
+  const stopTypingLoop = () => {
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+  };
+
+  const flushTypingQueue = () => {
+    if (!typingQueueRef.current.length) {
+      stopTypingLoop();
+      if (pendingAiDoneRef.current) {
+        finalizeAiMessage(pendingAiDoneRef.current);
+      }
+      return;
+    }
+
+    const batchSize = typingQueueRef.current.length > 160
+      ? 8
+      : typingQueueRef.current.length > 80
+        ? 4
+        : 2;
+
+    const nextSlice = typingQueueRef.current.splice(0, batchSize).join('');
+
+    setMessages((prev) => {
+      const idx = prev.findLastIndex((m) => m.isStreaming);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          content: `${updated[idx].content || ''}${nextSlice}`,
+        };
+        return updated;
+      }
+
+      return [...prev, { senderRole: 'ai', content: nextSlice, isStreaming: true }];
+    });
+  };
+
+  const ensureTypingLoop = () => {
+    if (typingIntervalRef.current) return;
+
+    typingIntervalRef.current = setInterval(() => {
+      flushTypingQueue();
+    }, 25);
+  };
+
+  /* ── Socket.io setup — connect once on mount, clean up on unmount ── */
+  useEffect(() => {
+    const sock = getSocket();
+    sock.connect();
+
+    const onChatCreated = ({ chatId }) => {
+      setActiveChatId(chatId);
+      fetchChats();
+    };
+
+    const onAiChunk = ({ text }) => {
+      setIsLoading(false);
+      typingQueueRef.current.push(...Array.from(text || ''));
+      ensureTypingLoop();
+    };
+
+    const onAiDone = ({ aiMessage, chatId }) => {
+      if (typingQueueRef.current.length || typingIntervalRef.current) {
+        pendingAiDoneRef.current = { aiMessage, chatId };
+      } else {
+        finalizeAiMessage({ aiMessage, chatId });
+      }
+    };
+
+    const onAiError = ({ error }) => {
+      typingQueueRef.current = [];
+      pendingAiDoneRef.current = null;
+      stopTypingLoop();
+      setMessages((prev) => {
+        const updated = [...prev];
+        const idx = updated.findLastIndex((m) => m.isStreaming);
+        if (idx >= 0) {
+          updated[idx] = {
+            senderRole: 'ai',
+            content: `⚠️ ${error || 'Failed to generate AI response.'}`,
+            isStreaming: false,
+          };
+        } else {
+          updated.push({
+            senderRole: 'ai',
+            content: `⚠️ ${error || 'Failed to generate AI response.'}`,
+          });
+        }
+        return updated;
+      });
+      setIsLoading(false);
+    };
+
+    sock.on('chat_created', onChatCreated);
+    sock.on('ai_chunk', onAiChunk);
+    sock.on('ai_done', onAiDone);
+    sock.on('ai_error', onAiError);
+
+    return () => {
+      sock.off('chat_created', onChatCreated);
+      sock.off('ai_chunk', onAiChunk);
+      sock.off('ai_done', onAiDone);
+      sock.off('ai_error', onAiError);
+      typingQueueRef.current = [];
+      pendingAiDoneRef.current = null;
+      stopTypingLoop();
+      disconnectSocket();
+    };
+  }, []);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -237,7 +377,7 @@ export default function ChatDashboard() {
     setAttachedFiles(prev => prev.filter(f => f.id !== id));
   };
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = (e) => {
     e?.preventDefault();
     if ((!inputMessage.trim() && !attachedFiles.length) || isLoading) return;
 
@@ -246,37 +386,22 @@ export default function ChatDashboard() {
 
     setInputMessage('');
     setAttachedFiles([]);
-    setMessages(prev => [...prev, { senderRole: 'user', content: userMsgContent, attachments: attachmentPayload }]);
-    setIsLoading(true);
+    typingQueueRef.current = [];
+    pendingAiDoneRef.current = null;
+    stopTypingLoop();
+    /* Add the user bubble immediately; the AI streaming bubble appears on first chunk */
+    setMessages((prev) => [
+      ...prev,
+      { senderRole: 'user', content: userMsgContent, attachments: attachmentPayload },
+    ]);
+    setIsLoading(true); // shows bounce until first ai_chunk arrives
 
-    try {
-      const res = await axiosClient.post(`${chatApiBase}/send`, {
-        chatId: activeChatId,
-        content: userMsgContent,
-        attachments: attachmentPayload,
-      });
-
-      const { aiMessage, chatId } = res.data.data;
-      setMessages(prev => [...prev, aiMessage]);
-      if (!activeChatId) {
-        setActiveChatId(chatId);
-        fetchChats();
-      }
-    } catch (err) {
-      console.error(err);
-      const serverMessage = err?.response?.status === 413
-        ? "Uploaded file is too large for current limit. Please upload a smaller image/file."
-        : err?.response?.data?.message || "Unable to generate AI response right now. Please check server logs/config.";
-      setMessages(prev => [
-        ...prev,
-        {
-          senderRole: 'ai',
-          content: `⚠️ ${serverMessage}`,
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
+    const sock = getSocket();
+    sock.emit('send_message', {
+      chatId: activeChatId,
+      content: userMsgContent,
+      attachments: attachmentPayload,
+    });
   };
 
   const handleLogout = async () => {
@@ -387,7 +512,7 @@ export default function ChatDashboard() {
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center px-4">
               <div className="w-full max-w-3xl text-center -mt-10">
-                <div className="mx-auto mb-8 h-24 w-64 md:h-28 md:w-80">
+                <div className="mx-auto mb-4 h-32 w-90 md:h-36 md:w-96">
                   <img src="/temp/ui-logo.png" alt="Renzo logo" className="h-full w-full object-contain" />
                 </div>
                 {attachedFiles.length > 0 && (
