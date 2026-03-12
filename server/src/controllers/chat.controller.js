@@ -301,4 +301,16 @@ const sendMessage = asyncHandler(async (req, res) => {
     );
 });
 
-export { createNewChat, getUserChats, getChatMessages, sendMessage };
+export {
+  createNewChat,
+  getUserChats,
+  getChatMessages,
+  sendMessage,
+  // Shared helpers used by the socket streaming handler
+  getGeminiClient,
+  GEMINI_MODEL_CANDIDATES,
+  fetchAvailableGeminiModels,
+  getRetryDelaySeconds,
+  buildGeminiPartsFromMessage,
+  sanitizeAttachments,
+};

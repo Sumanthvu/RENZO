@@ -45,13 +45,27 @@ dotenv.config({
   path: "./.env",
 });
 
+import { createServer } from "http";
+import { Server } from "socket.io";
 import connectDB from "./db/index.js";
 import { app } from "./app.js";
+import registerSocketHandlers from "./socket/index.js";
 
 connectDB()
   .then(() => {
-    app.listen(process.env.PORT || 8000, () => {
-      console.log(`Server is running at port : ${process.env.PORT}`);
+    const httpServer = createServer(app);
+
+    const io = new Server(httpServer, {
+      cors: {
+        origin: process.env.CLIENT_URL || "http://localhost:5173",
+        credentials: true,
+      },
+    });
+
+    registerSocketHandlers(io);
+
+    httpServer.listen(process.env.PORT || 8000, () => {
+      console.log(`Server is running at port : ${process.env.PORT || 8000}`);
     });
   })
   .catch((err) => {

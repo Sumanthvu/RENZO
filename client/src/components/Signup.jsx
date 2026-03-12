@@ -61,10 +61,10 @@ export default function Signup() {
       <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
 
         {/* ── Left panel ── */}
-        <section className="relative flex items-center justify-center px-8 py-10 lg:px-16 bg-[#18191c]">
+        <section className="relative flex items-center justify-center px-8 py-10 lg:px-16 bg-[#0c0e13]">
 
-          {/* Top-left mini logo */}
-          <img src="/temp/renzologo.png" alt="Renzo" className="absolute top-6 left-6 h-6 w-6 object-contain" />
+          {/* Top-left wordmark */}
+          <span className="absolute top-6 left-7 text-[15px] font-bold tracking-[0.2em] text-white uppercase select-none">RENZO</span>
 
           <div className="w-full max-w-[400px]">
             <h1 className="text-[38px] leading-[1.1] font-semibold tracking-tight text-white mb-2">
