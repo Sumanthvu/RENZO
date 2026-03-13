@@ -14,6 +14,7 @@ export default function ChatDashboard() {
   const [isSandboxOpen, setIsSandboxOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState('owned');
+  const [isNewChatDraft, setIsNewChatDraft] = useState(false);
   const [chats, setChats] = useState([]);
   const [sharedChats, setSharedChats] = useState([]);
   const [inboxInvites, setInboxInvites] = useState([]);
@@ -25,6 +26,7 @@ export default function ChatDashboard() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [invitePermission, setInvitePermission] = useState('read');
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
   const [editorCode, setEditorCode] = useState('# Code editor ready\n');
@@ -98,6 +100,9 @@ export default function ChatDashboard() {
 
   useEffect(() => {
     if (activeChatId) {
+      setIsNewChatDraft(false);
+    }
+    if (activeChatId) {
       localStorage.setItem('activeChatId', activeChatId);
     } else {
       localStorage.removeItem('activeChatId');
@@ -106,7 +111,7 @@ export default function ChatDashboard() {
   }, [activeChatId]);
 
   useEffect(() => {
-    if (activeChatId) return;
+    if (activeChatId || isNewChatDraft) return;
     if (chats.length) {
       setActiveChatId(chats[0]._id);
       return;
@@ -114,7 +119,7 @@ export default function ChatDashboard() {
     if (sharedChats.length) {
       setActiveChatId(sharedChats[0]._id);
     }
-  }, [activeChatId, chats, sharedChats]);
+  }, [activeChatId, chats, sharedChats, isNewChatDraft]);
 
   const finalizeAiMessage = ({ aiMessage, chatId }) => {
     if (
@@ -206,6 +211,7 @@ export default function ChatDashboard() {
     sock.connect();
 
     const onChatCreated = ({ chatId }) => {
+      setIsNewChatDraft(false);
       setActiveChatId(chatId);
       if (!activeStreamRef.current.chatId) {
         activeStreamRef.current = {
@@ -399,6 +405,7 @@ export default function ChatDashboard() {
     if (!activeChatId || !inviteEmail.trim() || !canManageCollaborators || isSendingInvite) return;
 
     setIsSendingInvite(true);
+    setInviteError('');
     try {
       await axiosClient.post(`${chatApiBase}/${activeChatId}/invitations`, {
         email: inviteEmail.trim(),
@@ -406,14 +413,12 @@ export default function ChatDashboard() {
       });
       setInviteEmail('');
       setInvitePermission('read');
+      setInviteError('');
       setIsInviteModalOpen(false);
     } catch (err) {
       console.error(err);
       const serverMessage = err?.response?.data?.message || 'Failed to send invitation.';
-      setMessages((prev) => [
-        ...prev,
-        { senderRole: 'ai', content: `⚠️ ${serverMessage}` },
-      ]);
+      setInviteError(serverMessage);
     } finally {
       setIsSendingInvite(false);
     }
@@ -769,7 +774,12 @@ export default function ChatDashboard() {
         {isOwnedView && (
           <div className="px-3 pt-3 space-y-1.5">
             <button
-              onClick={() => { setActiveChatId(null); setMessages([]); setIsSidebarOpen(false); }}
+              onClick={() => {
+                setIsNewChatDraft(true);
+                setActiveChatId(null);
+                setMessages([]);
+                setIsSidebarOpen(false);
+              }}
               className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] transition-colors"
             >
               <Plus size={17} className="text-gray-200" />
@@ -814,7 +824,11 @@ export default function ChatDashboard() {
                 {chats.map((chat) => (
                   <button
                     key={chat._id}
-                    onClick={() => { setActiveChatId(chat._id); setIsSidebarOpen(false); }}
+                    onClick={() => {
+                      setIsNewChatDraft(false);
+                      setActiveChatId(chat._id);
+                      setIsSidebarOpen(false);
+                    }}
                     className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${activeChatId === chat._id ? 'bg-white/10 text-white' : 'text-gray-300 hover:bg-white/[0.05]'}`}
                   >
                     <MessageSquare size={15} className={`${activeChatId === chat._id ? 'text-white' : 'text-gray-500'}`} />
@@ -834,7 +848,11 @@ export default function ChatDashboard() {
                   sharedChats.map((chat) => (
                     <button
                       key={chat._id}
-                      onClick={() => { setActiveChatId(chat._id); setIsSidebarOpen(false); }}
+                      onClick={() => {
+                        setIsNewChatDraft(false);
+                        setActiveChatId(chat._id);
+                        setIsSidebarOpen(false);
+                      }}
                       className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${activeChatId === chat._id ? 'bg-white/10 text-white' : 'text-gray-300 hover:bg-white/[0.05]'}`}
                     >
                       {chat.accessLevel === 'write' ? <ShieldCheck size={15} className="text-blue-300" /> : <Shield size={15} className="text-gray-500" />}
@@ -883,7 +901,11 @@ export default function ChatDashboard() {
           <div className="flex items-center gap-2.5">
             {activeChatId && (
               <button
-                onClick={() => canManageCollaborators && setIsInviteModalOpen(true)}
+                onClick={() => {
+                  if (!canManageCollaborators) return;
+                  setInviteError('');
+                  setIsInviteModalOpen(true);
+                }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${canManageCollaborators ? 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08]' : 'border-white/10 bg-white/[0.02] text-gray-500 cursor-not-allowed'}`}
                 title={canManageCollaborators ? 'Add collaborator' : 'Only chat owner can add collaborators'}
               >
@@ -1074,20 +1096,29 @@ export default function ChatDashboard() {
       </div>
 
       {isInviteModalOpen && (
-        <div className="fixed inset-0 z-[190] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsInviteModalOpen(false)}>
+        <div className="fixed inset-0 z-[190] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { setInviteError(''); setIsInviteModalOpen(false); }}>
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111520] p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Add collaborator</h3>
-              <button onClick={() => setIsInviteModalOpen(false)} className="h-8 w-8 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 flex items-center justify-center">
+              <button onClick={() => { setInviteError(''); setIsInviteModalOpen(false); }} className="h-8 w-8 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 flex items-center justify-center">
                 <X size={16} />
               </button>
             </div>
+
+            {inviteError && (
+              <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                ⚠️ {inviteError}
+              </div>
+            )}
 
             <label className="block text-xs text-gray-400 mb-2">Collaborator email</label>
             <input
               type="email"
               value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
+              onChange={(e) => {
+                if (inviteError) setInviteError('');
+                setInviteEmail(e.target.value);
+              }}
               placeholder="name@example.com"
               className="w-full rounded-xl border border-white/10 bg-[#0d1119] px-3 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-400/40"
             />
