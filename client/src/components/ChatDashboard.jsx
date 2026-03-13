@@ -37,6 +37,8 @@ export default function ChatDashboard() {
   const typingQueueRef = useRef([]);
   const typingIntervalRef = useRef(null);
   const pendingAiDoneRef = useRef(null);
+  const activeStreamRef = useRef({ chatId: null, clientRequestId: null });
+  const messageFetchSeqRef = useRef(0);
   const userName = (() => {
     try {
       const rawUser = localStorage.getItem('user');
@@ -77,7 +79,15 @@ export default function ChatDashboard() {
   }, []);
 
   useEffect(() => {
-    if (activeChatId) fetchMessages(activeChatId);
+    typingQueueRef.current = [];
+    pendingAiDoneRef.current = null;
+    stopTypingLoop();
+    setIsLoading(false);
+
+    if (activeChatId) {
+      setMessages([]);
+      fetchMessages(activeChatId);
+    }
   }, [activeChatId]);
 
   useEffect(() => {
@@ -95,7 +105,31 @@ export default function ChatDashboard() {
     activeChatIdRef.current = activeChatId;
   }, [activeChatId]);
 
+  useEffect(() => {
+    if (activeChatId) return;
+    if (chats.length) {
+      setActiveChatId(chats[0]._id);
+      return;
+    }
+    if (sharedChats.length) {
+      setActiveChatId(sharedChats[0]._id);
+    }
+  }, [activeChatId, chats, sharedChats]);
+
   const finalizeAiMessage = ({ aiMessage, chatId }) => {
+    if (
+      activeChatIdRef.current &&
+      chatId &&
+      String(chatId) !== String(activeChatIdRef.current)
+    ) {
+      setIsLoading(false);
+      pendingAiDoneRef.current = null;
+      if (activeStreamRef.current?.chatId && String(activeStreamRef.current.chatId) === String(chatId)) {
+        activeStreamRef.current = { chatId: null, clientRequestId: null };
+      }
+      return;
+    }
+
     setMessages((prev) => {
       const updated = [...prev];
       const idx = updated.findLastIndex((m) => m.isStreaming);
@@ -114,6 +148,7 @@ export default function ChatDashboard() {
 
     setIsLoading(false);
     pendingAiDoneRef.current = null;
+    activeStreamRef.current = { chatId: null, clientRequestId: null };
   };
 
   const stopTypingLoop = () => {
@@ -172,6 +207,12 @@ export default function ChatDashboard() {
 
     const onChatCreated = ({ chatId }) => {
       setActiveChatId(chatId);
+      if (!activeStreamRef.current.chatId) {
+        activeStreamRef.current = {
+          ...activeStreamRef.current,
+          chatId,
+        };
+      }
       fetchChats();
     };
 
@@ -204,13 +245,31 @@ export default function ChatDashboard() {
       fetchSharedChats();
     };
 
-    const onAiChunk = ({ text }) => {
+    const onAiChunk = ({ text, chatId, clientRequestId }) => {
+      const stream = activeStreamRef.current;
+      const sameActiveChat = chatId && String(chatId) === String(activeChatIdRef.current);
+      const sameRequest =
+        !stream?.clientRequestId ||
+        !clientRequestId ||
+        stream.clientRequestId === clientRequestId;
+
+      if (!sameActiveChat || !sameRequest) return;
+
       setIsLoading(false);
       typingQueueRef.current.push(...Array.from(text || ''));
       ensureTypingLoop();
     };
 
-    const onAiDone = ({ aiMessage, chatId }) => {
+    const onAiDone = ({ aiMessage, chatId, clientRequestId }) => {
+      const stream = activeStreamRef.current;
+      const sameActiveChat = chatId && String(chatId) === String(activeChatIdRef.current);
+      const sameRequest =
+        !stream?.clientRequestId ||
+        !clientRequestId ||
+        stream.clientRequestId === clientRequestId;
+
+      if (!sameActiveChat || !sameRequest) return;
+
       if (typingQueueRef.current.length || typingIntervalRef.current) {
         pendingAiDoneRef.current = { aiMessage, chatId };
       } else {
@@ -218,7 +277,16 @@ export default function ChatDashboard() {
       }
     };
 
-    const onAiError = ({ error }) => {
+    const onAiError = ({ error, chatId, clientRequestId }) => {
+      const stream = activeStreamRef.current;
+      const sameActiveChat = !chatId || String(chatId) === String(activeChatIdRef.current);
+      const sameRequest =
+        !stream?.clientRequestId ||
+        !clientRequestId ||
+        stream.clientRequestId === clientRequestId;
+
+      if (!sameActiveChat || !sameRequest) return;
+
       typingQueueRef.current = [];
       pendingAiDoneRef.current = null;
       stopTypingLoop();
@@ -240,6 +308,7 @@ export default function ChatDashboard() {
         return updated;
       });
       setIsLoading(false);
+      activeStreamRef.current = { chatId: null, clientRequestId: null };
     };
 
     sock.on('chat_created', onChatCreated);
@@ -262,6 +331,7 @@ export default function ChatDashboard() {
       sock.off('ai_error', onAiError);
       typingQueueRef.current = [];
       pendingAiDoneRef.current = null;
+      activeStreamRef.current = { chatId: null, clientRequestId: null };
       stopTypingLoop();
       disconnectSocket();
     };
@@ -299,10 +369,6 @@ export default function ChatDashboard() {
       const res = await axiosClient.get(`${chatApiBase}`);
       const chatList = res.data.data || [];
       setChats(chatList);
-
-      if (!activeChatId && chatList.length) {
-        setActiveChatId(chatList[0]._id);
-      }
     } catch (err) { console.error(err); }
   };
 
@@ -311,10 +377,6 @@ export default function ChatDashboard() {
       const res = await axiosClient.get(`${chatApiBase}/shared`);
       const sharedList = res.data.data || [];
       setSharedChats(sharedList);
-
-      if (!activeChatId && sharedList.length && chats.length === 0) {
-        setActiveChatId(sharedList[0]._id);
-      }
     } catch (err) {
       console.error(err);
     }
@@ -367,8 +429,11 @@ export default function ChatDashboard() {
   };
 
   const fetchMessages = async (id) => {
+    const fetchSeq = ++messageFetchSeqRef.current;
     try {
       const res = await axiosClient.get(`${chatApiBase}/${id}`);
+      if (fetchSeq !== messageFetchSeqRef.current) return;
+      if (String(activeChatIdRef.current) !== String(id)) return;
       setMessages(res.data.data);
     } catch (err) { console.error(err); }
   };
@@ -528,6 +593,10 @@ export default function ChatDashboard() {
     setAttachedFiles([]);
     typingQueueRef.current = [];
     pendingAiDoneRef.current = null;
+    activeStreamRef.current = {
+      chatId: activeChatId || null,
+      clientRequestId,
+    };
     stopTypingLoop();
     /* Add the user bubble immediately; the AI streaming bubble appears on first chunk */
     setMessages((prev) => [

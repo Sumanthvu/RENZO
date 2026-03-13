@@ -92,7 +92,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
         $set: { refreshToken },
       },
       {
-        new: false,
+        returnDocument: "before",
         runValidators: false,
       }
     );
@@ -189,7 +189,7 @@ const verifyOtpAndRegister = asyncHandler(async (req, res) => {
   const user = await User.findOneAndUpdate(
     { email },
     { $set: { isVerified: true } },
-    { new: true }
+    { returnDocument: "after" }
   ).select("-password -refreshToken");
 
   if (!user) {
@@ -257,7 +257,7 @@ const logOutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     { $unset: { refreshToken: 1 } }, // $unset completely removes the field
-    { new: true }
+    { returnDocument: "after" }
   );
 
   const options = {
