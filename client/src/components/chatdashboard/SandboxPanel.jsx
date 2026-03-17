@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Code, Play, Terminal } from 'lucide-react';
+import Editor from '@monaco-editor/react';
 import axiosClient from '../../api/axiosClient';
 
 export default function SandboxPanel({
@@ -85,6 +86,24 @@ export default function SandboxPanel({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handleEditorBeforeMount = (monaco) => {
+    monaco.editor.defineTheme('renzo-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#0D1117',
+        'editorGutter.background': '#0D1117',
+        'editorLineNumber.foreground': '#5B667A',
+        'editorLineNumber.activeForeground': '#98A2B3',
+        'editor.lineHighlightBackground': '#121826',
+        'editorCursor.foreground': '#9CC2FF',
+        'editor.selectionBackground': '#1B2B4B',
+        'editor.inactiveSelectionBackground': '#16233D',
+      },
+    });
+  };
+
   return (
     <div
       className={`relative border-l border-white/5 bg-[#0B0F19]/95 backdrop-blur-xl ${isResizing ? '' : 'transition-all duration-300 ease-in-out'} flex flex-col shrink-0 ${isSandboxOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
@@ -110,7 +129,28 @@ export default function SandboxPanel({
           </button>
         </div>
         <div className="flex-1 rounded-xl border border-white/10 bg-[#0D1117] overflow-hidden">
-          <textarea value={editorCode} onChange={(e) => setEditorCode(e.target.value)} spellCheck="false" className="w-full h-full bg-transparent text-gray-300 font-mono text-[13px] leading-relaxed p-4 resize-none focus:outline-none custom-scrollbar" />
+          <Editor
+            height="100%"
+            defaultLanguage="javascript"
+            language="javascript"
+            beforeMount={handleEditorBeforeMount}
+            theme="renzo-dark"
+            value={editorCode}
+            onChange={(value) => setEditorCode(value ?? '')}
+            options={{
+              fontSize: 14,
+              fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              lineNumbers: 'on',
+              automaticLayout: true,
+              bracketPairColorization: { enabled: true },
+              cursorBlinking: 'smooth',
+              smoothScrolling: true,
+              padding: { top: 12, bottom: 12 },
+            }}
+          />
         </div>
         <div className="h-[30%] min-h-[150px] rounded-xl border border-white/10 bg-black/60 overflow-hidden flex flex-col min-w-0">
           <div className="px-3 py-2 bg-white/5 border-b border-white/5 text-[11px] font-medium tracking-wider text-gray-400 uppercase flex gap-2 items-center"><Terminal size={14} /> Output</div>

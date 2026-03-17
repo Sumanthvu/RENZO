@@ -26,7 +26,7 @@ export default function useChatDashboardLogic() {
   const [inviteError, setInviteError] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
-  const [editorCode, setEditorCode] = useState('# Code editor ready\n');
+  const [editorCode, setEditorCode] = useState('// JavaScript sandbox\n');
 
   const chatContainerRef = useRef(null);
   const profileMenuRef = useRef(null);
