@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { createNewChat, getUserChats, getChatMessages, sendMessage } from "../controllers/chat.controller.js";
+import { executeSandboxCode } from "../controllers/execution.controller.js";
 import {
 	getSharedChats,
 	getChatCollaborators,
@@ -15,6 +16,7 @@ router.use(verifyJWT);
 router.route("/").post(createNewChat).get(getUserChats);
 router.route("/shared").get(getSharedChats);
 router.route("/send").post(sendMessage);
+router.route("/execute").post(executeSandboxCode);
 router.route("/invitations/inbox").get(getInboxInvitations);
 router.route("/invitations/:inviteId/respond").post(respondToInvitation);
 router.route("/:chatId/invitations").post(sendChatInvitation);

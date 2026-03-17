@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -10,6 +11,8 @@ import SandboxPanel from './chatdashboard/SandboxPanel';
 import { mdComponents, CopyButton } from './chatdashboard/MarkdownRenderers';
 
 export default function ChatDashboard() {
+  const [sandboxWidthPercent, setSandboxWidthPercent] = useState(40);
+
   const {
     isSidebarOpen,
     setIsSidebarOpen,
@@ -332,6 +335,8 @@ export default function ChatDashboard() {
         isSandboxOpen={isSandboxOpen}
         editorCode={editorCode}
         setEditorCode={setEditorCode}
+        sandboxWidthPercent={sandboxWidthPercent}
+        setSandboxWidthPercent={setSandboxWidthPercent}
       />
     </div>
   );
