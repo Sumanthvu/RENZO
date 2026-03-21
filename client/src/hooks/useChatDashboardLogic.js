@@ -39,6 +39,8 @@ export default function useChatDashboardLogic() {
   const pendingAiDoneRef = useRef(null);
   const activeStreamRef = useRef({ chatId: null, clientRequestId: null });
   const messageFetchSeqRef = useRef(0);
+  const socketResponseReceivedRef = useRef(false);
+  const sendFallbackTimerRef = useRef(null);
 
   const userName = (() => {
     try {
@@ -77,6 +79,13 @@ export default function useChatDashboardLogic() {
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
       typingIntervalRef.current = null;
+    }
+  };
+
+  const clearSendFallbackTimer = () => {
+    if (sendFallbackTimerRef.current) {
+      clearTimeout(sendFallbackTimerRef.current);
+      sendFallbackTimerRef.current = null;
     }
   };
 
@@ -401,6 +410,56 @@ export default function useChatDashboardLogic() {
       },
     ]);
     setIsLoading(true);
+    socketResponseReceivedRef.current = false;
+
+    clearSendFallbackTimer();
+    sendFallbackTimerRef.current = setTimeout(async () => {
+      if (socketResponseReceivedRef.current) return;
+
+      try {
+        const res = await axiosClient.post(`${chatApiBase}/send`, {
+          chatId: activeChatId,
+          content: userMsgContent,
+          attachments: attachmentPayload,
+        });
+
+        const payload = res?.data?.data || {};
+        const aiMessage = payload?.aiMessage;
+        const resolvedChatId = payload?.chatId;
+
+        if (resolvedChatId && !activeChatIdRef.current) {
+          setActiveChatId(resolvedChatId);
+        }
+
+        if (aiMessage) {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.senderRole === 'ai' && last?.isStreaming) {
+              const updated = [...prev];
+              updated[updated.length - 1] = { ...aiMessage, isStreaming: false };
+              return updated;
+            }
+            return [...prev, aiMessage];
+          });
+        }
+
+        setIsLoading(false);
+        activeStreamRef.current = { chatId: null, clientRequestId: null };
+        fetchChats();
+        fetchSharedChats();
+      } catch (err) {
+        const serverMessage = err?.response?.data?.message || 'Failed to generate AI response.';
+        setMessages((prev) => [
+          ...prev,
+          {
+            senderRole: 'ai',
+            content: `⚠️ ${serverMessage}`,
+          },
+        ]);
+        setIsLoading(false);
+        activeStreamRef.current = { chatId: null, clientRequestId: null };
+      }
+    }, 8000);
 
     const sock = getSocket();
     sock.emit('send_message', {
@@ -418,6 +477,7 @@ export default function useChatDashboardLogic() {
       console.error(err);
     } finally {
       localStorage.removeItem('user');
+      localStorage.removeItem('accessToken');
       localStorage.removeItem('activeChatId');
       navigate('/login');
     }
@@ -523,6 +583,9 @@ export default function useChatDashboardLogic() {
 
       if (!sameActiveChat || !sameRequest) return;
 
+      socketResponseReceivedRef.current = true;
+      clearSendFallbackTimer();
+
       setIsLoading(false);
       typingQueueRef.current.push(...Array.from(text || ''));
       ensureTypingLoop();
@@ -537,6 +600,9 @@ export default function useChatDashboardLogic() {
         stream.clientRequestId === clientRequestId;
 
       if (!sameActiveChat || !sameRequest) return;
+
+      socketResponseReceivedRef.current = true;
+      clearSendFallbackTimer();
 
       if (typingQueueRef.current.length || typingIntervalRef.current) {
         pendingAiDoneRef.current = { aiMessage, chatId };
@@ -554,6 +620,9 @@ export default function useChatDashboardLogic() {
         stream.clientRequestId === clientRequestId;
 
       if (!sameActiveChat || !sameRequest) return;
+
+      socketResponseReceivedRef.current = true;
+      clearSendFallbackTimer();
 
       typingQueueRef.current = [];
       pendingAiDoneRef.current = null;
@@ -601,6 +670,7 @@ export default function useChatDashboardLogic() {
       pendingAiDoneRef.current = null;
       activeStreamRef.current = { chatId: null, clientRequestId: null };
       stopTypingLoop();
+      clearSendFallbackTimer();
       disconnectSocket();
     };
   }, []);

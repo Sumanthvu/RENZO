@@ -22,12 +22,21 @@ let socket = null;
  * so the server can authenticate the user from the HTTP-only cookie.
  */
 export const getSocket = () => {
+  const token = localStorage.getItem("accessToken") || "";
+
   if (!socket) {
     socket = io(SOCKET_URL, {
       withCredentials: true, // sends the accessToken cookie automatically
       autoConnect: false,    // connect explicitly via socket.connect()
       transports: ["websocket", "polling"],
+      auth: {
+        token,
+      },
     });
+  } else {
+    socket.auth = {
+      token,
+    };
   }
   return socket;
 };

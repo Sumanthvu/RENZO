@@ -6,4 +6,13 @@ const axiosClient = axios.create({
   withCredentials: true, // Crucial: This forces the browser to send/receive JWT cookies
 });
 
+axiosClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export default axiosClient;

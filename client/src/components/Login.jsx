@@ -25,6 +25,9 @@ export default function Login() {
       const response = await axiosClient.post("/login", formData);
       toast.success(response.data.message || "Logged in successfully!");
       localStorage.setItem("user", JSON.stringify(response.data.data.user));
+      if (response?.data?.data?.accessToken) {
+        localStorage.setItem("accessToken", response.data.data.accessToken);
+      }
       setTimeout(() => navigate("/chat"), 1500);
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
@@ -98,6 +101,9 @@ export default function Login() {
                       });
                       toast.success("Logged in with Google!");
                       localStorage.setItem("user", JSON.stringify(response.data.data.user));
+                      if (response?.data?.data?.accessToken) {
+                        localStorage.setItem("accessToken", response.data.data.accessToken);
+                      }
                       setTimeout(() => navigate("/chat"), 1500);
                     } catch (error) {
                       toast.error("Google Login Failed");
