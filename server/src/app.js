@@ -5,21 +5,35 @@ import chatRouter from "./routes/chat.routes.js"; // Crucial for reading JWT coo
 
 const app = express();
 
-const allowedOrigins = [
+const normalizeOrigin = (value = "") => String(value).trim().replace(/\/+$/, "");
+
+const configuredOrigins = [
   process.env.CLIENT_URL,
+  ...(process.env.CLIENT_URLS || "").split(","),
   "http://localhost:5173",
   "http://localhost:5174",
-].filter(Boolean);
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
+const allowedOrigins = new Set(configuredOrigins);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
         callback(null, true);
         return;
       }
-      callback(new Error("Not allowed by CORS"));
+
+      const normalizedOrigin = normalizeOrigin(origin);
+      if (allowedOrigins.has(normalizedOrigin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
     },
     credentials: true, // Required to allow cookies to pass between ports
   })

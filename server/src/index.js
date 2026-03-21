@@ -55,6 +55,18 @@ import { setIO } from "./socket/ioStore.js";
 
 const port = Number(process.env.PORT) || 8000;
 
+const normalizeOrigin = (value = "") => String(value).trim().replace(/\/+$/, "");
+const socketAllowedOrigins = new Set(
+  [
+    process.env.CLIENT_URL,
+    ...(process.env.CLIENT_URLS || "").split(","),
+    "http://localhost:5173",
+    "http://localhost:5174",
+  ]
+    .map(normalizeOrigin)
+    .filter(Boolean),
+);
+
 let httpServer = null;
 let io = null;
 
@@ -116,7 +128,15 @@ connectDB()
 
     io = new Server(httpServer, {
       cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
+        origin: (origin, callback) => {
+          if (!origin) {
+            callback(null, true);
+            return;
+          }
+
+          const normalizedOrigin = normalizeOrigin(origin);
+          callback(null, socketAllowedOrigins.has(normalizedOrigin));
+        },
         credentials: true,
       },
     });
