@@ -321,7 +321,7 @@ const sendChatInvitation = asyncHandler(async (req, res) => {
   );
 
   if (existingCollaborator) {
-    throw new ApiError(409, "User is already a collaborator in this chat");
+    throw new ApiError(409, "User already exists in this chat");
   }
 
   const existingPending = await ChatInvitation.findOne({
@@ -331,19 +331,17 @@ const sendChatInvitation = asyncHandler(async (req, res) => {
   });
 
   if (existingPending) {
-    existingPending.permission = normalizedPermission;
-    existingPending.inviterId = req.user._id;
-    await existingPending.save();
-  } else {
-    await ChatInvitation.create({
-      chatId: chat._id,
-      inviterId: req.user._id,
-      inviteeId: invitee._id,
-      inviteeEmail: invitee.email,
-      permission: normalizedPermission,
-      status: "pending",
-    });
+    throw new ApiError(409, "Invitation already sent");
   }
+
+  await ChatInvitation.create({
+    chatId: chat._id,
+    inviterId: req.user._id,
+    inviteeId: invitee._id,
+    inviteeEmail: invitee.email,
+    permission: normalizedPermission,
+    status: "pending",
+  });
 
   const io = getIO();
   if (io) {

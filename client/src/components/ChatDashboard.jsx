@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { Toaster } from 'react-hot-toast';
 import { User, Send, PanelRightOpen, PanelRightClose, Paperclip, Mic, X, UserPlus } from 'lucide-react';
 import useChatDashboardLogic from '../hooks/useChatDashboardLogic';
 import SidebarPanel from './chatdashboard/SidebarPanel';
@@ -70,6 +71,7 @@ export default function ChatDashboard() {
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-black text-white flex" style={{ fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+      <Toaster position="top-center" reverseOrder={false} />
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(72,96,145,0.14),transparent_38%),linear-gradient(180deg,#040507_0%,#020203_100%)]" />
       </div>
@@ -188,13 +190,21 @@ export default function ChatDashboard() {
                   <button type="button" title="Attach files/images (Shift+click for folder)" onClick={handleAttachClick} className="absolute left-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-gray-400 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                     <Paperclip size={16} />
                   </button>
-                  <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder={activeChatId && !canWriteCurrentChat ? 'Read-only shared chat' : "What's on your mind?"} className="w-full bg-transparent pl-11 pr-28 py-3.5 text-[21px] leading-none text-gray-100 placeholder-gray-500 focus:outline-none" disabled={activeChatId && !canWriteCurrentChat} />
+                  <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder={activeChatId && !canWriteCurrentChat ? 'Read-only shared chat' : "What's on your mind?"} className="w-full bg-transparent pl-11 pr-28 py-3.5 text-[15px] text-gray-100 placeholder-gray-500 focus:outline-none" disabled={isLoading || (activeChatId && !canWriteCurrentChat)} />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                     <button type="button" className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                       <Mic size={16} />
                     </button>
                     <button type="submit" disabled={(!inputMessage.trim() && !attachedFiles.length) || (activeChatId && !canWriteCurrentChat)} className="h-9 w-9 rounded-full bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-40 flex items-center justify-center">
-                      <Send size={15} />
+                      {isLoading ? (
+                        <div className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-black/70 animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="h-1.5 w-1.5 rounded-full bg-black/70 animate-bounce" style={{ animationDelay: '120ms' }} />
+                          <span className="h-1.5 w-1.5 rounded-full bg-black/70 animate-bounce" style={{ animationDelay: '240ms' }} />
+                        </div>
+                      ) : (
+                        <Send size={15} />
+                      )}
                     </button>
                   </div>
                 </form>
@@ -266,10 +276,10 @@ export default function ChatDashboard() {
 
               {isLoading && (
                 <div className="flex justify-start w-full">
-                  <div className="flex items-center gap-1.5 py-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="h-1.5 w-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '140ms' }} />
-                    <span className="h-1.5 w-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '280ms' }} />
+                  <div className="typing-dots py-2">
+                    <span className="typing-dot typing-dot-1 bg-gray-500" />
+                    <span className="typing-dot typing-dot-2 bg-gray-500" />
+                    <span className="typing-dot typing-dot-3 bg-gray-500" />
                   </div>
                 </div>
               )}
@@ -301,13 +311,21 @@ export default function ChatDashboard() {
                 <button type="button" title="Attach files/images (Shift+click for folder)" onClick={handleAttachClick} className="absolute left-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-gray-400 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                   <Paperclip size={16} />
                 </button>
-                <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder={activeChatId && !canWriteCurrentChat ? 'Read-only shared chat' : "What's on your mind?"} className="w-full bg-transparent pl-11 pr-28 py-3.5 text-[15px] text-gray-100 placeholder-gray-500 focus:outline-none" disabled={activeChatId && !canWriteCurrentChat} />
+                <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} placeholder={activeChatId && !canWriteCurrentChat ? 'Read-only shared chat' : "What's on your mind?"} className="w-full bg-transparent pl-11 pr-28 py-3.5 text-[15px] text-gray-100 placeholder-gray-500 focus:outline-none" disabled={isLoading || (activeChatId && !canWriteCurrentChat)} />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                   <button type="button" className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/[0.08] flex items-center justify-center transition-colors">
                     <Mic size={16} />
                   </button>
                   <button type="submit" disabled={(!inputMessage.trim() && !attachedFiles.length) || (activeChatId && !canWriteCurrentChat)} className="h-9 w-9 rounded-full bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-40 flex items-center justify-center">
-                    <Send size={15} />
+                    {isLoading ? (
+                      <div className="typing-dots">
+                        <span className="typing-dot typing-dot-1 bg-black/70" />
+                        <span className="typing-dot typing-dot-2 bg-black/70" />
+                        <span className="typing-dot typing-dot-3 bg-black/70" />
+                      </div>
+                    ) : (
+                      <Send size={15} />
+                    )}
                   </button>
                 </div>
               </form>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import axiosClient from '../api/axiosClient';
 import { getSocket, disconnectSocket } from '../socket/socketClient';
 
@@ -211,6 +212,7 @@ export default function useChatDashboardLogic() {
         email: inviteEmail.trim(),
         permission: invitePermission,
       });
+      toast.success('Request sent successfully');
       setInviteEmail('');
       setInvitePermission('read');
       setInviteError('');

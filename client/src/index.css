@@ -107,6 +107,31 @@ samp {
 	transform: translate(-50%, -50%) rotate(240deg) translateX(10px);
 }
 
+.typing-dots {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.typing-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 9999px;
+	animation: typingToFro 1.35s ease-in-out infinite;
+}
+
+.typing-dot-1 {
+	animation-delay: 0ms;
+}
+
+.typing-dot-2 {
+	animation-delay: 170ms;
+}
+
+.typing-dot-3 {
+	animation-delay: 340ms;
+}
+
 @keyframes starDriftSlow {
 	0% { transform: translateY(0px) scale(1); }
 	100% { transform: translateY(40px) scale(1.02); }
@@ -130,6 +155,17 @@ samp {
 @keyframes orbitSpin {
 	from { transform: rotate(0deg); }
 	to { transform: rotate(360deg); }
+}
+
+@keyframes typingToFro {
+	0%, 100% {
+		transform: translateX(-2px);
+		opacity: 0.45;
+	}
+	50% {
+		transform: translateX(2px);
+		opacity: 1;
+	}
 }
 
 .no-scrollbar {
